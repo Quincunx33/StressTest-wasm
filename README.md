@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="load-test-dashboard-reference.png" alt="Illustrative load-testing metrics dashboard" width="820">
+  <img src="load-test-dashboard.svg" alt="WASM Stress Test performance dashboard illustration" width="820">
 </p>
 
 > **Illustrative dashboard reference:** the image above demonstrates the type of performance view that this project is designed to complement. The actual application renders its report directly in the browser and exports the collected metrics as JSON.
@@ -56,7 +56,7 @@ The browser loads the WASM runtime when the page starts. **No target request is 
 | `lib.rs` | Rust source for request execution, metrics, retries, rate limiting, circuit breaking, and report generation. |
 | `wasm_stress.js` | JavaScript glue generated for the Rust/WASM module. |
 | `wasm_stress_bg.wasm` | Compiled WebAssembly binary. |
-| `load-test-dashboard-reference.png` | Illustrative dashboard image used in this README. |
+| `load-test-dashboard.svg` | Illustrative dashboard image used in this README. |
 
 ## Getting Started
 
