@@ -52,8 +52,8 @@ The browser loads the WASM runtime when the page starts. **No target request is 
 
 | File | Purpose |
 |---|---|
-| `index(1).html` | User interface, validation, progress display, report merging, and JSON download. |
-| `lib(4).rs` | Rust source for request execution, metrics, retries, rate limiting, circuit breaking, and report generation. |
+| `index.html` | User interface, validation, progress display, report merging, and JSON download. |
+| `lib.rs` | Rust source for request execution, metrics, retries, rate limiting, circuit breaking, and report generation. |
 | `wasm_stress.js` | JavaScript glue generated for the Rust/WASM module. |
 | `wasm_stress_bg.wasm` | Compiled WebAssembly binary. |
 | `load-test-dashboard-reference.png` | Illustrative dashboard image used in this README. |
@@ -76,7 +76,7 @@ wasm_stress.js
 wasm_stress_bg.wasm
 ```
 
-Rename the two runtime artifacts to match the HTML paths, or update the import and initialization paths in `index(1).html` before serving the application.
+Rename the two runtime artifacts to match the HTML paths, or update the import and initialization paths in `index.html` before serving the application.
 
 ### How WebAssembly connects to your own JavaScript
 
@@ -201,7 +201,7 @@ python3 -m http.server 8080 --directory .
 Then open:
 
 ```text
-http://localhost:8080/index(1).html
+http://localhost:8080/index.html
 ```
 
 ### 3. Configure a test
@@ -264,7 +264,7 @@ The current WASM runner is request-count based. The frontend uses the configured
 
 The report merges the results from completed batches. A final in-flight batch may finish after the requested UI duration before its metrics are included in the final report.
 
-The runtime artifacts must be rebuilt together with the Rust source whenever the exported WASM ABI changes. Editing `lib(4).rs` alone does not update the already compiled `.wasm` binary.
+The runtime artifacts must be rebuilt together with the Rust source whenever the exported WASM ABI changes. Editing `lib.rs` alone does not update the already compiled `.wasm` binary.
 
 ## Development Notes
 
