@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WASM Stress Test</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { max-width: 760px; margin: 32px auto; padding: 0 18px; }
+    h1 { margin-bottom: 8px; }
+    .muted { opacity: .72; }
+    label { display:block; margin-top: 14px; font-weight: 600; }
+    input, select, textarea, button { box-sizing: border-box; width:100%; padding:10px; margin-top:6px; font:inherit; }
+    textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    input[type="checkbox"] { width:auto; margin:0 8px 0 0; vertical-align:middle; }
+    .check-label { display:flex; align-items:center; margin-top:14px; font-weight:600; }
+    details { margin-top:16px; border:1px solid #555; border-radius:6px; padding:10px; }
+    details summary { cursor:pointer; font-weight:600; }
+    details .grid { margin-top:4px; }
+    input:invalid, select:invalid { outline: 2px solid #d33; outline-offset: 1px; }
+    button { cursor:pointer; margin-top:20px; }
+    button:disabled { cursor: not-allowed; opacity: .6; }
+    progress { width:100%; height:22px; margin-top:18px; }
+    pre { white-space:pre-wrap; background:#222; color:#b9f6ca; padding:14px; border-radius:8px; overflow:auto; min-height: 80px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .error { color: #ff6b6b; }
+    .success { color: #65d98b; }
+    .field-error { display:block; min-height:1.2em; color:#ff6b6b; font-size:.85em; font-weight:400; }
+    @media (max-width:600px) { .grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <h1>WASM Stress Test</h1>
+  <p class="muted">Local test UI — WASM version: <strong id="version">loading…</strong></p>
+
+  <form id="test-form" novalidate>
+    <label for="url">Target URL
+      <input id="url" type="url" placeholder="https://example.com/health" spellcheck="false" autocomplete="off">
+      <span id="url-error" class="field-error" role="alert"></span>
+    </label>
+    <div class="grid">
+      <label for="requestTime">Request time (seconds)
+        <input id="requestTime" type="number" min="1" max="3600" value="30" inputmode="numeric">
+        <span id="requestTime-error" class="field-error" role="alert"></span>
+      </label>
+      <label for="concurrency">Concurrency
+        <input id="concurrency" type="number" min="1" value="2" inputmode="numeric">
+        <span id="concurrency-error" class="field-error" role="alert"></span>
+      </label>
+      <label for="timeout">Timeout (ms)
+        <input id="timeout" type="number" min="1" value="3000" inputmode="numeric">
+        <span id="timeout-error" class="field-error" role="alert"></span>
+      </label>
+    </div>
+    <label for="pattern">Load pattern
+      <select id="pattern">
+        <option value="constant">constant</option>
+        <option value="ramp-up">ramp-up</option>
+        <option value="spike">spike</option>
+        <option value="wave">wave</option>
+        <option value="step">step</option>
+        <option value="random">random</option>
+      </select>
+    </label>
+
+    <label for="method">HTTP method
+      <select id="method">
+        <option value="GET">GET</option>
+        <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="PATCH">PATCH</option>
+        <option value="DELETE">DELETE</option>
+        <option value="HEAD">HEAD</option>
+        <option value="OPTIONS">OPTIONS</option>
+      </select>
+    </label>
+
+    <label for="headers">Request headers (JSON)
+      <textarea id="headers" placeholder='{"Content-Type":"application/json"}' spellcheck="false"></textarea>
+      <span id="headers-error" class="field-error" role="alert"></span>
+    </label>
+
+    <label for="body">Request body
+      <textarea id="body" placeholder="Optional JSON or text payload" spellcheck="false"></textarea>
+    </label>
+
+    <label class="check-label"><input id="followRedirects" type="checkbox" checked> Follow redirects</label>
+
+    <label for="expectedText">Expected response text
+      <input id="expectedText" type="text" placeholder="Optional text assertion" autocomplete="off">
+    </label>
+
+    <label for="customScript">Custom script (optional JavaScript)
+      <textarea id="customScript" placeholder="return true;" spellcheck="false"></textarea>
+    </label>
+
+    <details>
+      <summary>Advanced controls</summary>
+      <div class="grid">
+        <label for="rateLimit">Rate limit (req/s)
+          <input id="rateLimit" type="number" min="0" value="0">
+        </label>
+        <label for="rateLimitWait">Rate-limit max wait (ms)
+          <input id="rateLimitWait" type="number" min="1" value="30000">
+        </label>
+        <label for="retryAttempts">Retry attempts
+          <input id="retryAttempts" type="number" min="1" max="20" value="3">
+        </label>
+        <label for="retryBase">Retry base delay (ms)
+          <input id="retryBase" type="number" min="0" value="250">
+        </label>
+        <label for="retryMax">Retry max delay (ms)
+          <input id="retryMax" type="number" min="0" value="3000">
+        </label>
+        <label for="circuitThreshold">Circuit threshold (%)
+          <input id="circuitThreshold" type="number" min="1" max="100" value="50">
+        </label>
+        <label for="circuitTimeout">Circuit timeout (ms)
+          <input id="circuitTimeout" type="number" min="1" value="30000">
+        </label>
+        <label for="circuitWindow">Circuit window size
+          <input id="circuitWindow" type="number" min="1" value="20">
+        </label>
+        <label for="circuitWindowMs">Circuit window (ms)
+          <input id="circuitWindowMs" type="number" min="1" value="60000">
+        </label>
+      </div>
+      <label class="check-label"><input id="rotateUserAgent" type="checkbox"> Rotate user agent</label>
+      <label class="check-label"><input id="wafBypass" type="checkbox"> Enable request header variation</label>
+      <label class="check-label"><input id="wafCacheBuster" type="checkbox" checked> Cache-buster headers</label>
+      <label class="check-label"><input id="wafXffRotation" type="checkbox" checked> X-forwarded-for rotation</label>
+      <label class="check-label"><input id="wafRandomHeaders" type="checkbox" checked> Random request headers</label>
+      <label class="check-label"><input id="templating" type="checkbox" checked> Enable template rendering</label>
+    </details>
+    <button id="run" type="submit" disabled>Run test</button>
+    <button id="download" type="button" disabled>Download report</button>
+  </form>
+
+  <progress id="progress" value="0" max="0"></progress>
+  <p id="state" class="muted" aria-live="polite">Loading WASM runtime…</p>
+  <pre id="output" aria-live="polite">No result yet.</pre>
+
+  <script type="module">
+    import init, { run_stress_test, version } from './stress_wasm.js?v=15';
+
+    const $ = (id) => document.getElementById(id);
+    const form = $('test-form');
+    const runButton = $('run');
+    const downloadButton = $('download');
+    let lastReport = null;
+
+    function clearErrors() {
+      document.querySelectorAll('.field-error').forEach((node) => { node.textContent = ''; });
+      document.querySelectorAll('input, textarea, select').forEach((node) => { node.removeAttribute('aria-invalid'); });
+    }
+
+    function addError(field, message) {
+      $(`${field}-error`).textContent = message;
+      $(field).setAttribute('aria-invalid', 'true');
+    }
+
+    function normalizeTarget(raw) {
+      const value = raw.trim();
+      if (/^https?:\/\//i.test(value)) return value;
+      if (/^(localhost|127(?:\.\d{1,3}){3}|(?:\d{1,3}\.){3}\d{1,3})(:\d+)?(?:\/.*)?$/i.test(value)) {
+        return `http://${value}`;
+      }
+      return value;
+    }
+
+    function readableError(error) {
+      const raw = String(error?.message || error || 'Unknown error');
+      if (/cors|failed to fetch|networkerror|network error/i.test(raw)) {
+        return `Request blocked or unavailable. Check the endpoint, CORS policy, and server status.\n\nTechnical detail: ${raw}`;
+      }
+      if (/timeout|aborted/i.test(raw)) {
+        return `Request timed out. Increase timeout or verify that the endpoint responds.\n\nTechnical detail: ${raw}`;
+      }
+      return raw;
+    }
+
+    function validate() {
+      clearErrors();
+      let valid = true;
+      const url = normalizeTarget($('url').value);
+      const requestTime = Number($('requestTime').value);
+      const concurrency = Number($('concurrency').value);
+      const timeout = Number($('timeout').value);
+      const headersText = $('headers').value.trim();
+
+      try { const parsed = new URL(url); if (!/^https?:$/.test(parsed.protocol)) throw new Error(); } catch (_) { addError('url', 'Enter a valid HTTP/HTTPS URL or IP address.'); valid = false; }
+      if (!Number.isInteger(requestTime) || requestTime < 1 || requestTime > 3600) { addError('requestTime', 'Enter a duration between 1 and 3600 seconds.'); valid = false; }
+      if (headersText) { try { const parsedHeaders = JSON.parse(headersText); if (!parsedHeaders || Array.isArray(parsedHeaders) || typeof parsedHeaders !== 'object') throw new Error(); } catch (_) { addError('headers', 'Headers must be a valid JSON object.'); valid = false; } }
+      if (!Number.isInteger(concurrency) || concurrency < 1) { addError('concurrency', 'Enter a whole number greater than 0.'); valid = false; }
+
+      if (!Number.isInteger(timeout) || timeout < 1) { addError('timeout', 'Enter a timeout greater than 0 ms.'); valid = false; }
+      return valid;
+    }
+
+    function setRunning(running) {
+      runButton.disabled = running || !runButton.dataset.ready;
+      $('state').textContent = running ? 'Running…' : $('state').textContent;
+    }
+
+    async function start() {
+      try {
+        await init('./stress_wasm_bg.wasm?v=15');
+        $('version').textContent = version();
+        $('state').textContent = 'Ready';
+        $('state').className = 'muted success';
+        runButton.dataset.ready = 'true';
+        runButton.disabled = false;
+      } catch (error) {
+        $('version').textContent = 'unavailable';
+        $('state').textContent = 'WASM initialization failed';
+        $('state').className = 'error';
+        $('output').textContent = readableError(error);
+      }
+    }
+
+    downloadButton.addEventListener('click', () => {
+      if (!lastReport) return;
+      const blob = new Blob([JSON.stringify(lastReport, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `stress-test-report-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    function addMaps(target, source) {
+      for (const [key, value] of Object.entries(source || {})) target[key] = (target[key] || 0) + Number(value || 0);
+      return target;
+    }
+
+    function mergeReports(reports, durationSeconds) {
+      const last = reports[reports.length - 1] || {};
+      const totalRequests = reports.reduce((sum, item) => sum + Number(item.total_requests || 0), 0);
+      const successful = reports.reduce((sum, item) => sum + Number(item.successful_requests || 0), 0);
+      const failed = reports.reduce((sum, item) => sum + Number(item.failed_requests || 0), 0);
+      const latencySum = reports.reduce((sum, item) => sum + Number(item.avg_latency_ms || 0) * Number(item.successful_requests || 0), 0);
+      const totalTime = durationSeconds * 1000;
+      const merged = {
+        ...last,
+        duration_seconds: durationSeconds,
+        batches: reports.length,
+        total_requests: totalRequests,
+        successful_requests: successful,
+        failed_requests: failed,
+        total_time_ms: totalTime,
+        avg_latency_ms: successful ? latencySum / successful : 0,
+        throughput_per_second: durationSeconds ? totalRequests / durationSeconds : 0,
+        failed_assertions: reports.reduce((sum, item) => sum + Number(item.failed_assertions || 0), 0),
+        rate_limit_hits: reports.reduce((sum, item) => sum + Number(item.rate_limit_hits || 0), 0),
+        circuit_open_events: reports.reduce((sum, item) => sum + Number(item.circuit_open_events || 0), 0),
+        circuit_blocked_requests: reports.reduce((sum, item) => sum + Number(item.circuit_blocked_requests || 0), 0),
+        retry_attempts: reports.reduce((sum, item) => sum + Number(item.retry_attempts || 0), 0),
+        timeout_count: reports.reduce((sum, item) => sum + Number(item.timeout_count || 0), 0),
+        network_error_count: reports.reduce((sum, item) => sum + Number(item.network_error_count || 0), 0),
+        error_breakdown: {},
+        status_code_distribution: {},
+        error_details: reports.flatMap((item) => item.error_details || []),
+        time_series: reports.flatMap((item) => item.time_series || [])
+      };
+      reports.forEach((item) => {
+        addMaps(merged.error_breakdown, item.error_breakdown);
+        addMaps(merged.status_code_distribution, item.status_code_distribution);
+      });
+      return merged;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!validate() || !runButton.dataset.ready) return;
+
+      const requestTime = Number($('requestTime').value);
+      const concurrency = Number($('concurrency').value);
+      const method = $('method').value;
+      const headersJson = $('headers').value.trim() || '{}';
+      const requestBody = $('body').value.trim() || undefined;
+      const followRedirects = $('followRedirects').checked;
+      const expectedText = $('expectedText').value;
+      const customScript = $('customScript').value.trim();
+      const rateLimitNumber = Number($('rateLimit').value);
+      const rateLimit = rateLimitNumber > 0 ? rateLimitNumber : undefined;
+      const circuitThreshold = Number($('circuitThreshold').value);
+      const retryAttempts = Number($('retryAttempts').value);
+      const rateLimitWait = Number($('rateLimitWait').value);
+      const retryBase = Number($('retryBase').value);
+      const retryMax = Number($('retryMax').value);
+      const circuitTimeout = Number($('circuitTimeout').value);
+      const circuitWindow = Number($('circuitWindow').value);
+      const circuitWindowMs = Number($('circuitWindowMs').value);
+      const timeout = Number($('timeout').value);
+      const expectedStatus = 0;
+      const durationMs = requestTime * 1000;
+      const startedAt = performance.now();
+      const reports = [];
+      $('progress').max = durationMs;
+      $('progress').value = 0;
+      $('state').className = 'muted';
+      $('state').textContent = `Running for ${requestTime}s…`;
+      $('output').textContent = '';
+      lastReport = null;
+      downloadButton.disabled = true;
+      setRunning(true);
+
+      try {
+        // Run small batches until the requested wall-clock duration expires.
+        // This keeps the existing WASM ABI compatible while making the UI duration-driven.
+        do {
+          const batchStarted = performance.now();
+          const batch = await run_stress_test(
+            normalizeTarget($('url').value), concurrency, concurrency, method, headersJson, requestBody,
+            timeout, followRedirects, $('pattern').value,
+            expectedStatus, expectedText, customScript,
+            () => {
+              const elapsed = Math.min(durationMs, performance.now() - startedAt);
+              $('progress').value = elapsed;
+              $('state').textContent = `Running for ${requestTime}s… ${Math.round((elapsed / durationMs) * 100)}%`;
+            },
+            rateLimit, circuitThreshold, retryAttempts,
+            $('rotateUserAgent').checked ? true : undefined,
+            $('wafBypass').checked ? true : undefined,
+            $('wafCacheBuster').checked ? true : undefined,
+            $('wafXffRotation').checked ? true : undefined,
+            $('wafRandomHeaders').checked ? true : undefined,
+            rateLimitWait, retryBase, retryMax,
+            BigInt(circuitTimeout), circuitWindow, BigInt(circuitWindowMs), true,
+            $('templating').checked
+          );
+          reports.push(batch);
+          const elapsed = performance.now() - startedAt;
+          $('progress').value = Math.min(durationMs, elapsed);
+          $('state').textContent = `Running for ${requestTime}s… ${Math.round((Math.min(durationMs, elapsed) / durationMs) * 100)}%`;
+          if (performance.now() - batchStarted <= 0) break;
+        } while (performance.now() - startedAt < durationMs);
+
+        const result = mergeReports(reports, requestTime);
+        lastReport = result;
+        $('progress').value = durationMs;
+        downloadButton.disabled = false;
+        $('output').textContent = JSON.stringify(result, null, 2);
+        $('state').textContent = 'Finished';
+        $('state').className = 'muted success';
+      } catch (error) {
+        $('state').textContent = 'Test failed';
+        $('state').className = 'error';
+        $('output').textContent = readableError(error);
+      } finally {
+        setRunning(false);
+      }
+    });
+
+    start();
+  </script>
+</body>
+</html>
