@@ -5,367 +5,140 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WASM Stress Test</title>
   <style>
-    :root {
-      color-scheme: light dark;
-      --bg-primary: #f8fafc;
-      --bg-card: #ffffff;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border-color: #e2e8f0;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --primary-disabled: #93c5fd;
-      --bg-input: #ffffff;
-      --bg-code: #0f172a;
-      --text-code: #38edf8;
-      --error: #ef4444;
-      --success: #10b981;
-      --focus-ring: rgba(37, 99, 235, 0.25);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg-primary: #0f172a;
-        --bg-card: #1e293b;
-        --text-main: #f8fafc;
-        --text-muted: #94a3b8;
-        --border-color: #334155;
-        --primary: #3b82f6;
-        --primary-hover: #60a5fa;
-        --primary-disabled: #1e3a8a;
-        --bg-input: #0f172a;
-        --bg-code: #020617;
-        --text-code: #4ade80;
-        --error: #f87171;
-        --success: #34d399;
-        --focus-ring: rgba(59, 130, 246, 0.3);
-      }
-    }
-
-    body {
-      max-width: 800px;
-      margin: 40px auto;
-      padding: 0 20px;
-      background-color: var(--bg-primary);
-      color: var(--text-main);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.5;
-    }
-
-    .container {
-      background: var(--bg-card);
-      padding: 28px;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-      border: 1px solid var(--border-color);
-    }
-
-    h1 {
-      margin-top: 0;
-      margin-bottom: 6px;
-      font-size: 1.75rem;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .muted {
-      color: var(--text-muted);
-      font-size: 0.95rem;
-    }
-
-    label {
-      display: block;
-      margin-top: 18px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: var(--text-main);
-    }
-
-    input[type="text"],
-    input[type="url"],
-    input[type="number"],
-    select,
-    textarea {
-      box-sizing: border-box;
-      width: 100%;
-      padding: 10px 14px;
-      margin-top: 6px;
-      font: inherit;
-      background-color: var(--bg-input);
-      color: var(--text-main);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--focus-ring);
-    }
-
-    textarea {
-      min-height: 85px;
-      resize: vertical;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.875rem;
-    }
-
-    input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      margin: 0 10px 0 0;
-      accent-color: var(--primary);
-      cursor: pointer;
-    }
-
-    .check-label {
-      display: flex;
-      align-items: center;
-      margin-top: 16px;
-      font-weight: 500;
-      cursor: pointer;
-    }
-
-    details {
-      margin-top: 22px;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 14px;
-      background-color: rgba(0, 0, 0, 0.02);
-    }
-
-    details summary {
-      cursor: pointer;
-      font-weight: 600;
-      color: var(--primary);
-    }
-
-    details .grid {
-      margin-top: 10px;
-    }
-
-    input:invalid, select:invalid {
-      border-color: var(--error);
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 12px;
-      margin-top: 24px;
-    }
-
-    button {
-      cursor: pointer;
-      padding: 12px 20px;
-      font-weight: 600;
-      border-radius: 8px;
-      border: none;
-      transition: background-color 0.2s, transform 0.1s;
-    }
-
-    button[type="submit"] {
-      background-color: var(--primary);
-      color: #ffffff;
-      flex: 2;
-    }
-
-    button[type="submit"]:hover:not(:disabled) {
-      background-color: var(--primary-hover);
-    }
-
-    button[type="button"] {
-      background-color: transparent;
-      color: var(--text-main);
-      border: 1px solid var(--border-color);
-      flex: 1;
-    }
-
-    button[type="button"]:hover:not(:disabled) {
-      background-color: rgba(0, 0, 0, 0.05);
-    }
-
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-
-    button:active:not(:disabled) {
-      transform: scale(0.99);
-    }
-
-    progress {
-      width: 100%;
-      height: 10px;
-      margin-top: 20px;
-      border-radius: 6px;
-      overflow: hidden;
-      border: none;
-    }
-
-    progress::-webkit-progress-bar {
-      background-color: var(--border-color);
-    }
-
-    progress::-webkit-progress-value {
-      background-color: var(--primary);
-      transition: width 0.3s ease;
-    }
-
-    pre {
-      white-space: pre-wrap;
-      background-color: var(--bg-code);
-      color: var(--text-code);
-      padding: 16px;
-      border-radius: 8px;
-      overflow: auto;
-      min-height: 100px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.875rem;
-      border: 1px solid var(--border-color);
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-
-    .error { color: var(--error); }
-    .success { color: var(--success); }
-
-    .field-error {
-      display: block;
-      min-height: 1.2em;
-      color: var(--error);
-      font-size: 0.8rem;
-      font-weight: 500;
-      margin-top: 4px;
-    }
-
-    @media (max-width: 600px) {
-      .grid { grid-template-columns: 1fr; }
-      .btn-group { flex-direction: column; }
-    }
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { max-width: 760px; margin: 32px auto; padding: 0 18px; }
+    h1 { margin-bottom: 8px; }
+    .muted { opacity: .72; }
+    label { display:block; margin-top: 14px; font-weight: 600; }
+    input, select, textarea, button { box-sizing: border-box; width:100%; padding:10px; margin-top:6px; font:inherit; }
+    textarea { min-height: 82px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    input[type="checkbox"] { width:auto; margin:0 8px 0 0; vertical-align:middle; }
+    .check-label { display:flex; align-items:center; margin-top:14px; font-weight:600; }
+    details { margin-top:16px; border:1px solid #555; border-radius:6px; padding:10px; }
+    details summary { cursor:pointer; font-weight:600; }
+    details .grid { margin-top:4px; }
+    input:invalid, select:invalid { outline: 2px solid #d33; outline-offset: 1px; }
+    button { cursor:pointer; margin-top:20px; }
+    button:disabled { cursor: not-allowed; opacity: .6; }
+    progress { width:100%; height:22px; margin-top:18px; }
+    pre { white-space:pre-wrap; background:#222; color:#b9f6ca; padding:14px; border-radius:8px; overflow:auto; min-height: 80px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .error { color: #ff6b6b; }
+    .success { color: #65d98b; }
+    .field-error { display:block; min-height:1.2em; color:#ff6b6b; font-size:.85em; font-weight:400; }
+    @media (max-width:600px) { .grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>WASM Stress Test</h1>
-    <p class="muted">Local test UI — WASM version: <strong id="version">loading…</strong></p>
+  <h1>WASM Stress Test</h1>
+  <p class="muted">Local test UI — WASM version: <strong id="version">loading…</strong></p>
 
-    <form id="test-form" novalidate>
-      <label for="url">Target URL
-        <input id="url" type="url" placeholder="https://example.com/health" spellcheck="false" autocomplete="off">
-        <span id="url-error" class="field-error" role="alert"></span>
+  <form id="test-form" novalidate>
+    <label for="url">Target URL
+      <input id="url" type="url" placeholder="https://example.com/health" spellcheck="false" autocomplete="off">
+      <span id="url-error" class="field-error" role="alert"></span>
+    </label>
+    <div class="grid">
+      <label for="requestTime">Request time (seconds)
+        <input id="requestTime" type="number" min="1" max="3600" value="30" inputmode="numeric">
+        <span id="requestTime-error" class="field-error" role="alert"></span>
       </label>
+      <label for="concurrency">Concurrency
+        <input id="concurrency" type="number" min="1" value="2" inputmode="numeric">
+        <span id="concurrency-error" class="field-error" role="alert"></span>
+      </label>
+      <label for="timeout">Timeout (ms)
+        <input id="timeout" type="number" min="1" value="3000" inputmode="numeric">
+        <span id="timeout-error" class="field-error" role="alert"></span>
+      </label>
+    </div>
+    <label for="pattern">Load pattern
+      <select id="pattern">
+        <option value="constant">constant</option>
+        <option value="ramp-up">ramp-up</option>
+        <option value="spike">spike</option>
+        <option value="wave">wave</option>
+        <option value="step">step</option>
+        <option value="random">random</option>
+      </select>
+    </label>
 
+    <label for="method">HTTP method
+      <select id="method">
+        <option value="GET">GET</option>
+        <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="PATCH">PATCH</option>
+        <option value="DELETE">DELETE</option>
+        <option value="HEAD">HEAD</option>
+        <option value="OPTIONS">OPTIONS</option>
+      </select>
+    </label>
+
+    <label for="headers">Request headers (JSON)
+      <textarea id="headers" placeholder='{"Content-Type":"application/json"}' spellcheck="false"></textarea>
+      <span id="headers-error" class="field-error" role="alert"></span>
+    </label>
+
+    <label for="body">Request body
+      <textarea id="body" placeholder="Optional JSON or text payload" spellcheck="false"></textarea>
+    </label>
+
+    <label class="check-label"><input id="followRedirects" type="checkbox" checked> Follow redirects</label>
+
+    <label for="expectedText">Expected response text
+      <input id="expectedText" type="text" placeholder="Optional text assertion" autocomplete="off">
+    </label>
+
+    <label for="customScript">Custom script (optional JavaScript)
+      <textarea id="customScript" placeholder="return true;" spellcheck="false"></textarea>
+    </label>
+
+    <details>
+      <summary>Advanced controls</summary>
       <div class="grid">
-        <label for="requestTime">Request time (seconds)
-          <input id="requestTime" type="number" min="1" max="3600" value="30" inputmode="numeric">
-          <span id="requestTime-error" class="field-error" role="alert"></span>
+        <label for="rateLimit">Rate limit (req/s)
+          <input id="rateLimit" type="number" min="0" value="0">
         </label>
-        <label for="concurrency">Concurrency
-          <input id="concurrency" type="number" min="1" value="2" inputmode="numeric">
-          <span id="concurrency-error" class="field-error" role="alert"></span>
+        <label for="rateLimitWait">Rate-limit max wait (ms)
+          <input id="rateLimitWait" type="number" min="1" value="30000">
         </label>
-        <label for="timeout">Timeout (ms)
-          <input id="timeout" type="number" min="1" value="3000" inputmode="numeric">
-          <span id="timeout-error" class="field-error" role="alert"></span>
+        <label for="retryAttempts">Retry attempts
+          <input id="retryAttempts" type="number" min="1" max="20" value="3">
+        </label>
+        <label for="retryBase">Retry base delay (ms)
+          <input id="retryBase" type="number" min="0" value="250">
+        </label>
+        <label for="retryMax">Retry max delay (ms)
+          <input id="retryMax" type="number" min="0" value="3000">
+        </label>
+        <label for="circuitThreshold">Circuit threshold (%)
+          <input id="circuitThreshold" type="number" min="1" max="100" value="50">
+        </label>
+        <label for="circuitTimeout">Circuit timeout (ms)
+          <input id="circuitTimeout" type="number" min="1" value="30000">
+        </label>
+        <label for="circuitWindow">Circuit window size
+          <input id="circuitWindow" type="number" min="1" value="20">
+        </label>
+        <label for="circuitWindowMs">Circuit window (ms)
+          <input id="circuitWindowMs" type="number" min="1" value="60000">
         </label>
       </div>
+      <label class="check-label"><input id="rotateUserAgent" type="checkbox"> Rotate user agent</label>
+      <label class="check-label"><input id="wafBypass" type="checkbox"> Enable request header variation</label>
+      <label class="check-label"><input id="wafCacheBuster" type="checkbox" checked> Cache-buster headers</label>
+      <label class="check-label"><input id="wafXffRotation" type="checkbox" checked> X-forwarded-for rotation</label>
+      <label class="check-label"><input id="wafRandomHeaders" type="checkbox" checked> Random request headers</label>
+      <label class="check-label"><input id="templating" type="checkbox" checked> Enable template rendering</label>
+    </details>
+    <button id="run" type="submit" disabled>Run test</button>
+    <button id="download" type="button" disabled>Download report</button>
+  </form>
 
-      <label for="pattern">Load pattern
-        <select id="pattern">
-          <option value="constant">constant</option>
-          <option value="ramp-up">ramp-up</option>
-          <option value="spike">spike</option>
-          <option value="wave">wave</option>
-          <option value="step">step</option>
-          <option value="random">random</option>
-        </select>
-      </label>
-
-      <label for="method">HTTP method
-        <select id="method">
-          <option value="GET">GET</option>
-          <option value="POST">POST</option>
-          <option value="PUT">PUT</option>
-          <option value="PATCH">PATCH</option>
-          <option value="DELETE">DELETE</option>
-          <option value="HEAD">HEAD</option>
-          <option value="OPTIONS">OPTIONS</option>
-        </select>
-      </label>
-
-      <label for="headers">Request headers (JSON)
-        <textarea id="headers" placeholder='{"Content-Type":"application/json"}' spellcheck="false"></textarea>
-        <span id="headers-error" class="field-error" role="alert"></span>
-      </label>
-
-      <label for="body">Request body
-        <textarea id="body" placeholder="Optional JSON or text payload" spellcheck="false"></textarea>
-      </label>
-
-      <label class="check-label"><input id="followRedirects" type="checkbox" checked> Follow redirects</label>
-
-      <label for="expectedText">Expected response text
-        <input id="expectedText" type="text" placeholder="Optional text assertion" autocomplete="off">
-      </label>
-
-      <label for="customScript">Custom script (optional JavaScript)
-        <textarea id="customScript" placeholder="return true;" spellcheck="false"></textarea>
-      </label>
-
-      <details>
-        <summary>Advanced controls</summary>
-        <div class="grid">
-          <label for="rateLimit">Rate limit (req/s)
-            <input id="rateLimit" type="number" min="0" value="0">
-          </label>
-          <label for="rateLimitWait">Rate-limit max wait (ms)
-            <input id="rateLimitWait" type="number" min="1" value="30000">
-          </label>
-          <label for="retryAttempts">Retry attempts
-            <input id="retryAttempts" type="number" min="1" max="20" value="3">
-          </label>
-          <label for="retryBase">Retry base delay (ms)
-            <input id="retryBase" type="number" min="0" value="250">
-          </label>
-          <label for="retryMax">Retry max delay (ms)
-            <input id="retryMax" type="number" min="0" value="3000">
-          </label>
-          <label for="circuitThreshold">Circuit threshold (%)
-            <input id="circuitThreshold" type="number" min="1" max="100" value="50">
-          </label>
-          <label for="circuitTimeout">Circuit timeout (ms)
-            <input id="circuitTimeout" type="number" min="1" value="30000">
-          </label>
-          <label for="circuitWindow">Circuit window size
-            <input id="circuitWindow" type="number" min="1" value="20">
-          </label>
-          <label for="circuitWindowMs">Circuit window (ms)
-            <input id="circuitWindowMs" type="number" min="1" value="60000">
-          </label>
-        </div>
-        <label class="check-label"><input id="rotateUserAgent" type="checkbox"> Rotate user agent</label>
-        <label class="check-label"><input id="wafBypass" type="checkbox"> Enable request header variation</label>
-        <label class="check-label"><input id="wafCacheBuster" type="checkbox" checked> Cache-buster headers</label>
-        <label class="check-label"><input id="wafXffRotation" type="checkbox" checked> X-forwarded-for rotation</label>
-        <label class="check-label"><input id="wafRandomHeaders" type="checkbox" checked> Random request headers</label>
-        <label class="check-label"><input id="templating" type="checkbox" checked> Enable template rendering</label>
-      </details>
-
-      <div class="btn-group">
-        <button id="run" type="submit" disabled>Run test</button>
-        <button id="download" type="button" disabled>Download report</button>
-      </div>
-    </form>
-
-    <progress id="progress" value="0" max="0"></progress>
-    <p id="state" class="muted" aria-live="polite">Loading WASM runtime…</p>
-    <pre id="output" aria-live="polite">No result yet.</pre>
-  </div>
+  <progress id="progress" value="0" max="0"></progress>
+  <p id="state" class="muted" aria-live="polite">Loading WASM runtime…</p>
+  <pre id="output" aria-live="polite">No result yet.</pre>
 
   <script type="module">
     import init, { run_stress_test, version } from './stress_wasm.js?v=15';
@@ -536,6 +309,8 @@
       setRunning(true);
 
       try {
+        // Run small batches until the requested wall-clock duration expires.
+        // This keeps the existing WASM ABI compatible while making the UI duration-driven.
         do {
           const batchStarted = performance.now();
           const batch = await run_stress_test(
