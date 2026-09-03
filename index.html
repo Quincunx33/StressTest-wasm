@@ -141,7 +141,7 @@
   <pre id="output" aria-live="polite">No result yet.</pre>
 
   <script type="module">
-    import init, { run_stress_test, version } from './stress_wasm.js?v=15';
+    import init, { run_stress_test, version } from './wasm_stress.js?v=16';
 
     const $ = (id) => document.getElementById(id);
     const form = $('test-form');
@@ -204,7 +204,7 @@
 
     async function start() {
       try {
-        await init('./stress_wasm_bg.wasm?v=15');
+        await init('./wasm_stress_bg.wasm?v=16');
         $('version').textContent = version();
         $('state').textContent = 'Ready';
         $('state').className = 'muted success';
