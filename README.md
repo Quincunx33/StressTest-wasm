@@ -271,21 +271,3 @@ The runtime artifacts must be rebuilt together with the Rust source whenever the
 When changing the Rust exports, regenerate all matching WebAssembly artifacts, including the JavaScript glue file and binary. Keep the generated files version-aligned and update the cache-busting query string in the HTML when deploying a new build.
 
 For repeatable testing, use a dedicated test endpoint, start with low concurrency, monitor server-side metrics, and increase load gradually. Compare client-side results with server logs and infrastructure metrics before drawing conclusions.
-
-## License
-
-No license file is included with the supplied artifacts. Add an explicit license before publishing or redistributing this project.
-
-## References
-
-[1]: https://developer.mozilla.org/en-US/docs/WebAssembly "MDN WebAssembly documentation"
-
-[2]: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API "MDN Fetch API documentation"
-
-[3]: https://www.rust-lang.org/what/wasm "Rust and WebAssembly"
-
-[4]: https://www.webperformance.com/ "Web Performance load-testing dashboard reference"
-
----
-
-<p align="center"><sub>Built for controlled, observable, browser-based performance testing.</sub></p>
