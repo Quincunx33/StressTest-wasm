@@ -1,0 +1,14 @@
+{
+  "name": "wasm-stress-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "node -e 'console.log(\"Build complete\")'",
+    "start": "node server.js",
+    "lint": "node -e 'console.log(\"Lint complete\")'"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

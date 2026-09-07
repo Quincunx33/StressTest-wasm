@@ -1,0 +1,6 @@
+{
+  "name": "WASM Stress Test",
+  "description": "A browser-native HTTP stress-testing interface powered by Rust and WebAssembly.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

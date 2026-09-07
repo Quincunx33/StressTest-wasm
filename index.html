@@ -1,164 +1,430 @@
 <!doctype html>
-<html lang="bn">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WASM Stress Test</title>
+  <meta name="description" content="A browser-native HTTP stress-testing interface powered by Rust and WebAssembly.">
+  <meta property="og:title" content="WASM Stress Test">
+  <meta property="og:description" content="A browser-native HTTP stress-testing interface powered by Rust and WebAssembly.">
   <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:#070b14; color:#e5eefb; }
-    * { box-sizing:border-box; }
-    body { max-width:900px; margin:0 auto; padding:44px 22px 70px; background:radial-gradient(circle at 50% -10%, #17284a 0, #0b1220 34%, #070b14 72%); min-height:100vh; }
-    h1 { margin:0 0 8px; color:#f8fbff; font-size:clamp(2rem, 5vw, 3rem); letter-spacing:-.04em; }
-    body > p.muted { margin:0 0 28px; color:#8fa3bf; font-size:.98rem; }
-    body > p.muted strong { color:#67e8f9; font-weight:700; }
-    form { padding:26px; border:1px solid #243552; border-radius:20px; background:rgba(13,23,40,.82); box-shadow:0 22px 65px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.035); }
-    label { display:block; margin-top:18px; color:#cbd8e9; font-size:.92rem; font-weight:700; letter-spacing:.01em; }
-    input, select, textarea, button { box-sizing:border-box; width:100%; padding:12px 14px; margin-top:8px; border:1px solid #2b3c59; border-radius:10px; background:#0a1322; color:#edf5ff; font:inherit; transition:border-color .18s, box-shadow .18s, background .18s; }
-    input::placeholder, textarea::placeholder { color:#637693; }
-    input:hover, select:hover, textarea:hover { border-color:#3b5275; }
-    input:focus, select:focus, textarea:focus { outline:none; border-color:#22d3ee; box-shadow:0 0 0 3px rgba(34,211,238,.14); background:#0c1728; }
-    textarea { min-height:92px; resize:vertical; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height:1.5; }
-    input[type="checkbox"] { width:18px; height:18px; margin:0 10px 0 0; accent-color:#22d3ee; vertical-align:middle; }
-    .check-label { display:flex; align-items:center; margin-top:16px; color:#b9c9dd; }
-    details { margin-top:24px; border:1px solid #263957; border-radius:14px; padding:16px; background:rgba(8,17,30,.58); }
-    details summary { cursor:pointer; color:#9edff0; font-weight:800; list-style-position:inside; }
-    details .grid { margin-top:4px; }
-    input:invalid, select:invalid { border-color:#ef6475; box-shadow:0 0 0 3px rgba(239,100,117,.12); }
-    button { cursor:pointer; margin-top:22px; border-color:#22d3ee; background:linear-gradient(135deg,#0891b2,#4f46e5); color:#fff; font-weight:800; box-shadow:0 10px 24px rgba(8,145,178,.2); }
-    button:hover:not(:disabled) { filter:brightness(1.12); transform:translateY(-1px); }
-    button:disabled { cursor:not-allowed; opacity:.48; box-shadow:none; }
-    #download { border-color:#344966; background:#16243a; color:#b9c9dd; box-shadow:none; }
-    progress { width:100%; height:11px; margin-top:24px; accent-color:#22d3ee; border-radius:999px; overflow:hidden; }
-    progress::-webkit-progress-bar { background:#142239; border-radius:999px; }
-    progress::-webkit-progress-value { background:linear-gradient(90deg,#22d3ee,#818cf8); border-radius:999px; }
-    #state { color:#8fa3bf; }
-    pre { white-space:pre-wrap; background:#050a12; color:#b9f6ca; padding:18px; border:1px solid #1e304b; border-radius:14px; overflow:auto; min-height:100px; line-height:1.55; }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .error { color:#ff8290; }
-    .success { color:#65d98b; }
-    .field-error { display:block; min-height:1.2em; color:#ff8290; font-size:.82em; font-weight:500; }
-    @media (max-width:600px) { body { padding:28px 14px 48px; } form { padding:18px; border-radius:16px; } .grid { grid-template-columns:1fr; gap:0; } }
+    :root { 
+      --bg-color: #f4f4f5;
+      --container-bg: #ffffff;
+      --header-bg: #ffffff;
+      --text-color: #000000;
+      --text-muted: #6b7280;
+      --border-color: #000000;
+      --input-bg: #ffffff;
+      --button-bg: #e5e7eb;
+      --button-hover: #d1d5db;
+      --accent-color: #ffcc00;
+      --success-color: #22c55e;
+      --error-color: #ef4444;
+      --card-bg: #ffffff;
+      --table-header-bg: #f3f4f6;
+      --modal-overlay: rgba(0,0,0,0.8);
+      --pattern-opacity: 0.5;
+      --pattern-color: #e5e7eb;
+      
+      color-scheme: light; 
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; 
+    }
+
+    html.dark {
+      --bg-color: #09090b;
+      --container-bg: #18181b;
+      --header-bg: #18181b;
+      --text-color: #fafafa;
+      --text-muted: #a1a1aa;
+      --border-color: #fafafa;
+      --input-bg: #27272a;
+      --button-bg: #3f3f46;
+      --button-hover: #52525b;
+      --accent-color: #fbbf24;
+      --success-color: #4ade80;
+      --error-color: #f87171;
+      --card-bg: #27272a;
+      --table-header-bg: #3f3f46;
+      --modal-overlay: rgba(0,0,0,0.9);
+      --pattern-opacity: 0.1;
+      --pattern-color: #3f3f46;
+      
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: var(--bg-color); color: var(--text-color); transition: background 0.2s, color 0.2s; }
+    
+    .warning-banner { width: 100%; background: var(--accent-color); color: #000; font-weight: 800; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 8px 16px; text-align: center; border-bottom: 2px solid var(--border-color); }
+    
+    header { width: 100%; max-width: 1000px; padding: 40px 20px; border-bottom: 2px solid var(--border-color); border-left: 2px solid var(--border-color); border-right: 2px solid var(--border-color); margin-top: 16px; position: relative; overflow: hidden; background-color: var(--header-bg); }
+    header::before { content: ""; position: absolute; right: -50px; top: -50px; width: 300px; height: 300px; background: repeating-linear-gradient(45deg, var(--pattern-color), var(--pattern-color) 2px, transparent 2px, transparent 10px); opacity: var(--pattern-opacity); z-index: 0; }
+    .header-content { position: relative; z-index: 1; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .logo-box { width: 64px; height: 64px; background: var(--border-color); display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0; }
+    .logo-box svg { stroke: var(--container-bg); }
+    .logo-box::after { content: ""; position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: var(--success-color); }
+    .title-area h1 { margin: 0; font-size: clamp(1.4rem, 5vw, 3.5rem); font-weight: 900; letter-spacing: -0.02em; text-transform: uppercase; line-height: 1; word-break: break-all; color: var(--text-color); }
+    
+    .wasm-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; border: 2px solid var(--border-color); margin-top: 8px; letter-spacing: 0.05em; transition: all 0.2s; }
+    .wasm-badge.loading { background: var(--accent-color); color: #000; }
+    .wasm-badge.ready { background: var(--success-color); color: #fff; }
+    .wasm-badge.error { background: var(--error-color); color: #fff; }
+    .wasm-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .wasm-badge.loading::before { animation: pulse 1s infinite alternate; }
+    @keyframes pulse { from { opacity: 1; } to { opacity: 0.3; } }
+    
+    .theme-toggle { background: var(--button-bg); border: 2px solid var(--border-color); color: var(--text-color); padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; justify-content: center; box-shadow: 4px 4px 0px var(--border-color); transition: transform 0.1s, box-shadow 0.1s; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
+    .theme-toggle:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px var(--border-color); }
+    .theme-toggle svg { width: 16px; height: 16px; fill: currentColor; }
+    .sun-icon, .theme-text-light { display: none; }
+    html.dark .sun-icon, html.dark .theme-text-light { display: block; }
+    html.dark .moon-icon, html.dark .theme-text-dark { display: none; }
+
+    .main-container { width: 100%; max-width: 1000px; background: var(--container-bg); border: 2px solid var(--border-color); border-top: none; padding: 32px; flex: 1; }
+    
+    .section-title { font-size: 1.25rem; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color); display: flex; align-items: center; gap: 12px; color: var(--text-color); }
+    .section-title::before { content: "⎈"; font-size: 1.2em; }
+    
+    .label-text-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; width: 100%; }
+    label { display: block; margin-top: 20px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-color); }
+    .label-hint { color: var(--text-muted); font-weight: 600; }
+    
+    input, select, textarea { width: 100%; padding: 12px 14px; margin-top: 8px; border: 2px solid var(--border-color); background: var(--input-bg); color: var(--text-color); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 1rem; font-weight: 600; border-radius: 0; box-shadow: none; transition: none; appearance: none; }
+    select { background-image: linear-gradient(45deg, transparent 50%, var(--border-color) 50%), linear-gradient(135deg, var(--border-color) 50%, transparent 50%); background-position: calc(100% - 20px) calc(1em + 2px), calc(100% - 15px) calc(1em + 2px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 40px; }
+    input:focus, select:focus, textarea:focus { outline: none; box-shadow: 4px 4px 0px var(--border-color); }
+    textarea { min-height: 100px; resize: vertical; }
+    
+    .url-row { display: flex; gap: 12px; align-items: flex-end; }
+    .url-row .input-group { flex: 1; margin-top: 0; }
+    .url-row button { margin-top: 0; white-space: nowrap; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    
+    .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+    .check-label { display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 2px solid var(--border-color); cursor: pointer; margin-top: 0; font-size: 0.75rem; font-weight: 800; }
+    .check-label:has(input:checked) { background: var(--table-header-bg); }
+    .check-label input[type="checkbox"] { width: 16px; height: 16px; margin: 0; border: 2px solid var(--border-color); appearance: none; background: var(--input-bg); position: relative; cursor: pointer; }
+    .check-label input[type="checkbox"]:checked { background: var(--border-color); }
+    .check-label input[type="checkbox"]:checked::after { content: "✓"; color: var(--container-bg); position: absolute; font-size: 12px; top: -1px; left: 2px; }
+    
+    .advanced-section { margin-top: 32px; border: 2px solid var(--border-color); padding: 24px; position: relative; }
+    .advanced-section::before { content: "ADVANCED CONFIGURATION"; position: absolute; top: -10px; left: 16px; background: var(--container-bg); padding: 0 8px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+    
+    .btn-group { display: flex; gap: 16px; margin-top: 32px; flex-wrap: wrap; }
+    button { cursor: pointer; padding: 14px 24px; border: 2px solid var(--border-color); background: var(--button-bg); color: var(--text-color); font-weight: 900; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; box-shadow: 4px 4px 0px var(--border-color); transition: transform 0.1s, box-shadow 0.1s; border-radius: 0; }
+    button:active:not(:disabled) { transform: translate(4px, 4px); box-shadow: 0px 0px 0px var(--border-color); }
+    button:disabled { cursor: not-allowed; opacity: 0.5; box-shadow: none; transform: none; }
+    button#run { background: var(--border-color); color: var(--container-bg); flex: 1; min-width: 200px; }
+    button#stop { background: var(--error-color); color: #fff; flex: 1; display: none; min-width: 200px; }
+    button#download { background: var(--input-bg); min-width: 200px; flex: 1; }
+    
+    .progress-container { margin-top: 24px; border: 2px solid var(--border-color); height: 24px; width: 100%; position: relative; background: var(--input-bg); }
+    progress { width: 100%; height: 100%; appearance: none; border: none; background: transparent; position: absolute; top: 0; left: 0; }
+    progress::-webkit-progress-bar { background: transparent; }
+    progress::-webkit-progress-value { background: var(--accent-color); border-right: 2px solid var(--border-color); }
+    
+    #state { margin: 12px 0 32px; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+    
+    .field-error { display: block; min-height: 1.2em; color: var(--error-color); font-size: 0.75rem; font-weight: 700; margin-top: 4px; text-transform: uppercase; }
+    
+    .disclaimer-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-overlay); z-index: 100; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
+    .disclaimer-content { background: var(--container-bg); border: 4px solid var(--border-color); padding: 32px; max-width: 600px; width: 100%; box-shadow: 8px 8px 0px var(--border-color); position: relative; }
+    .disclaimer-content h2 { margin-top: 0; font-size: 1.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 24px; }
+    .disclaimer-content p { font-size: 0.95rem; line-height: 1.6; margin-bottom: 16px; font-weight: 600; }
+    .disclaimer-content ul { font-size: 0.95rem; line-height: 1.6; font-weight: 600; margin-bottom: 24px; padding-left: 20px; }
+    .disclaimer-content li { margin-bottom: 8px; }
+    .disclaimer-content button.close-modal { margin-top: 16px; background: var(--border-color); color: var(--container-bg); width: 100%; }
+    
+    /* Report Styles */
+    .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-top: 16px; }
+    .report-card { background: var(--card-bg); border: 2px solid var(--border-color); padding: 16px; text-align: center; box-shadow: 2px 2px 0px var(--border-color); }
+    .report-card h3 { margin: 0; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em; }
+    .report-card p { margin: 8px 0 0; font-size: 1.5rem; font-weight: 900; font-family: ui-monospace, monospace; color: var(--text-color); }
+    .report-card.success p { color: var(--success-color); }
+    .report-card.error p { color: var(--error-color); }
+    
+    .cors-notice { background: var(--accent-color); border: 2px solid var(--border-color); padding: 16px; margin-top: 24px; color: #000; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; box-shadow: 2px 2px 0px var(--border-color); }
+    
+    .details-table-wrapper { width: 100%; overflow-x: auto; margin-top: 24px; border: 2px solid var(--border-color); }
+    .details-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; font-family: ui-monospace, monospace; }
+    .details-table th, .details-table td { border-bottom: 2px solid var(--border-color); padding: 12px 16px; background: var(--input-bg); }
+    .details-table th { background: var(--table-header-bg); font-weight: 800; text-transform: uppercase; border-right: 2px solid var(--border-color); }
+    .details-table td { border-right: 2px solid var(--border-color); }
+    .details-table th:last-child, .details-table td:last-child { border-right: none; }
+    .details-table tr:last-child td { border-bottom: none; }
+    
+    pre#output { background: #000; color: #22c55e; padding: 16px; border: 2px solid var(--border-color); font-family: ui-monospace, monospace; font-size: 0.85rem; overflow: auto; min-height: 80px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+    
+    @media (max-width: 600px) {
+      .grid, .url-row { grid-template-columns: 1fr; flex-direction: column; }
+      header { border-left: none; border-right: none; margin-top: 0; }
+      .main-container { border-left: none; border-right: none; padding: 20px; }
+      .title-area h1 { font-size: 1.8rem; }
+      .btn-group { flex-direction: column; }
+      button { width: 100%; }
+      .checkbox-grid { grid-template-columns: 1fr; }
+    }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <h1>WASM Stress Test</h1>
-  <p class="muted">Local test UI — WASM version: <strong id="version">loading…</strong></p>
+  <div class="warning-banner">
+    ⚠️ AUTHORIZED USE ONLY • RUNS REAL WASM STRESS TEST • <a href="#" id="openDisclaimer" style="color: #000; text-decoration: underline;">VIEW DISCLAIMER</a>
+  </div>
 
-  <form id="test-form" novalidate>
-    <label for="url">Target URL
-      <input id="url" type="url" placeholder="https://example.com/health" spellcheck="false" autocomplete="off">
-      <span id="url-error" class="field-error" role="alert"></span>
-    </label>
-    <div class="grid">
-      <label for="requestTime">Request time (seconds)
-        <input id="requestTime" type="number" min="1" max="3600" value="30" inputmode="numeric">
-        <span id="requestTime-error" class="field-error" role="alert"></span>
-      </label>
-      <label for="concurrency">Concurrency
-        <input id="concurrency" type="number" min="1" value="2" inputmode="numeric">
-        <span id="concurrency-error" class="field-error" role="alert"></span>
-      </label>
-      <label for="timeout">Timeout (ms)
-        <input id="timeout" type="number" min="1" value="3000" inputmode="numeric">
-        <span id="timeout-error" class="field-error" role="alert"></span>
-      </label>
+  <div id="disclaimerModal" class="disclaimer-modal">
+    <div class="disclaimer-content">
+      <h2>Authorization Required</h2>
+      <p>This tool is designed to perform HTTP stress testing. By using this tool, you agree to the following terms:</p>
+      <ul>
+        <li>You have explicit authorization to perform stress tests on the target systems.</li>
+        <li>You will not use this tool for malicious purposes, including Denial of Service (DoS) attacks.</li>
+        <li>You understand that generating high loads can disrupt services and incur costs on the target infrastructure.</li>
+        <li>The creators of this tool are not responsible for any damage or legal consequences resulting from its use.</li>
+      </ul>
+      <p>Use responsibly and ethically.</p>
+      <button type="button" class="close-modal" id="closeDisclaimer">I AGREE & UNDERSTAND</button>
     </div>
-    <label for="pattern">Load pattern
-      <select id="pattern">
-        <option value="constant">constant</option>
-        <option value="ramp-up">ramp-up</option>
-        <option value="spike">spike</option>
-        <option value="wave">wave</option>
-        <option value="step">step</option>
-        <option value="random">random</option>
-      </select>
-    </label>
+  </div>
 
-    <label for="method">HTTP method
-      <select id="method">
-        <option value="GET">GET</option>
-        <option value="POST">POST</option>
-        <option value="PUT">PUT</option>
-        <option value="PATCH">PATCH</option>
-        <option value="DELETE">DELETE</option>
-        <option value="HEAD">HEAD</option>
-        <option value="OPTIONS">OPTIONS</option>
-      </select>
-    </label>
+  <header>
+    <div class="header-content">
+      <div class="header-left">
+        <div class="logo-box">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+            <rect x="2" y="2" width="20" height="8"></rect>
+            <rect x="2" y="14" width="20" height="8"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+        </div>
+        <div class="title-area">
+          <h1>WASM_STRESS_TESTER</h1>
+          <div id="wasm-status" class="wasm-badge loading">WASM: INITIALIZING...</div>
+        </div>
+      </div>
+      <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
+        <svg class="moon-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+        <svg class="sun-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <span class="theme-text-dark">DARK</span>
+        <span class="theme-text-light">LIGHT</span>
+      </button>
+    </div>
+  </header>
 
-    <label for="headers">Request headers (JSON)
-      <textarea id="headers" placeholder='{"Content-Type":"application/json"}' spellcheck="false"></textarea>
-      <span id="headers-error" class="field-error" role="alert"></span>
-    </label>
+  <div class="main-container">
+    <div class="section-title">TEST CONFIGURATION</div>
+    <form id="test-form" novalidate>
+      
+      <div class="url-row">
+        <div class="input-group">
+          <label for="url">
+            <div class="label-text-row">
+              <span>TARGET (URL OR IP:PORT)</span>
+              <span class="label-hint">HTTP / HTTPS / RAW IP</span>
+            </div>
+            <input id="url" type="url" placeholder="https://target.com or 192.168.1.1:8080" spellcheck="false" autocomplete="off">
+            <span id="url-error" class="field-error" role="alert"></span>
+          </label>
+        </div>
+      </div>
 
-    <label for="body">Request body
-      <textarea id="body" placeholder="Optional JSON or text payload" spellcheck="false"></textarea>
-    </label>
-
-    <label class="check-label"><input id="followRedirects" type="checkbox" checked> Follow redirects</label>
-
-    <label for="expectedText">Expected response text
-      <input id="expectedText" type="text" placeholder="Optional text assertion" autocomplete="off">
-    </label>
-
-    <label for="customScript">Custom script (optional JavaScript)
-      <textarea id="customScript" placeholder="return true;" spellcheck="false"></textarea>
-    </label>
-
-    <details>
-      <summary>Advanced controls</summary>
       <div class="grid">
-        <label for="rateLimit">Rate limit (req/s)
-          <input id="rateLimit" type="number" min="0" value="0">
+        <label for="requestTime">
+          <div class="label-text-row">
+            <span>DURATION (SEC)</span>
+            <span class="label-hint">30S</span>
+          </div>
+          <input id="requestTime" type="number" min="1" max="3600" value="30" inputmode="numeric">
+          <span id="requestTime-error" class="field-error" role="alert"></span>
         </label>
-        <label for="rateLimitWait">Rate-limit max wait (ms)
-          <input id="rateLimitWait" type="number" min="1" value="30000">
-        </label>
-        <label for="retryAttempts">Retry attempts
-          <input id="retryAttempts" type="number" min="1" max="20" value="3">
-        </label>
-        <label for="retryBase">Retry base delay (ms)
-          <input id="retryBase" type="number" min="0" value="250">
-        </label>
-        <label for="retryMax">Retry max delay (ms)
-          <input id="retryMax" type="number" min="0" value="3000">
-        </label>
-        <label for="circuitThreshold">Circuit threshold (%)
-          <input id="circuitThreshold" type="number" min="1" max="100" value="50">
-        </label>
-        <label for="circuitTimeout">Circuit timeout (ms)
-          <input id="circuitTimeout" type="number" min="1" value="30000">
-        </label>
-        <label for="circuitWindow">Circuit window size
-          <input id="circuitWindow" type="number" min="1" value="20">
-        </label>
-        <label for="circuitWindowMs">Circuit window (ms)
-          <input id="circuitWindowMs" type="number" min="1" value="60000">
+        <label for="concurrency">
+          <div class="label-text-row">
+            <span>PARALLEL CONNS</span>
+            <span class="label-hint">15</span>
+          </div>
+          <input id="concurrency" type="number" min="1" value="15" inputmode="numeric">
+          <span id="concurrency-error" class="field-error" role="alert"></span>
         </label>
       </div>
-      <label class="check-label"><input id="rotateUserAgent" type="checkbox"> Rotate user agent</label>
-      <label class="check-label"><input id="wafBypass" type="checkbox"> Enable request header variation</label>
-      <label class="check-label"><input id="wafCacheBuster" type="checkbox" checked> Cache-buster headers</label>
-      <label class="check-label"><input id="wafXffRotation" type="checkbox" checked> X-forwarded-for rotation</label>
-      <label class="check-label"><input id="wafRandomHeaders" type="checkbox" checked> Random request headers</label>
-      <label class="check-label"><input id="templating" type="checkbox" checked> Enable template rendering</label>
-    </details>
-    <button id="run" type="submit" disabled>Run test</button>
-    <button id="download" type="button" disabled>Download report</button>
-  </form>
+      
+      <div class="grid">
+        <label for="timeout">
+          <div class="label-text-row">
+            <span>TIMEOUT (MS)</span>
+            <span class="label-hint">3000MS</span>
+          </div>
+          <input id="timeout" type="number" min="1" value="3000" inputmode="numeric">
+          <span id="timeout-error" class="field-error" role="alert"></span>
+        </label>
+        <label for="method">HTTP METHOD
+          <select id="method">
+            <option value="GET">GET (Read Only)</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="PATCH">PATCH</option>
+            <option value="DELETE">DELETE</option>
+            <option value="HEAD">HEAD</option>
+            <option value="OPTIONS">OPTIONS</option>
+          </select>
+        </label>
+      </div>
+      
+      <div class="grid">
+        <label for="pattern">LOAD PATTERN
+          <select id="pattern">
+            <option value="constant">Flat Constant Rate</option>
+            <option value="ramp-up">Ramp-Up Peak</option>
+            <option value="spike">Aggressive Spike</option>
+            <option value="wave">Oscillating Wave</option>
+            <option value="step">Step Increments</option>
+            <option value="random">Randomized Chaos</option>
+          </select>
+        </label>
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 0;">
+          <label for="expectedStatus" style="margin-top: 20px;">EXPECTED STATUS
+            <input id="expectedStatus" type="number" placeholder="200" min="0" max="599" value="0">
+          </label>
+          <label for="expectedText" style="margin-top: 20px;">EXPECTED TEXT
+            <input id="expectedText" type="text" placeholder="Optional assertion" autocomplete="off">
+          </label>
+        </div>
+      </div>
 
-  <progress id="progress" value="0" max="0"></progress>
-  <p id="state" class="muted" aria-live="polite">Loading WASM runtime…</p>
-  <pre id="output" aria-live="polite">No result yet.</pre>
+      <div class="checkbox-grid">
+        <label class="check-label">WAF BYPASS <input id="wafBypass" type="checkbox"></label>
+        <label class="check-label">CACHE-BUSTER <input id="wafCacheBuster" type="checkbox" checked></label>
+        <label class="check-label">XFF ROTATION <input id="wafXffRotation" type="checkbox" checked></label>
+        <label class="check-label">RANDOM HEADERS <input id="wafRandomHeaders" type="checkbox" checked></label>
+        <label class="check-label">ROTATE USER AGENT <input id="rotateUserAgent" type="checkbox"></label>
+        <label class="check-label">FOLLOW REDIRECTS <input id="followRedirects" type="checkbox" checked></label>
+      </div>
+
+      <div class="advanced-section">
+        <div class="grid">
+          <label for="headers">REQUEST HEADERS (JSON)
+            <textarea id="headers" placeholder='{"Content-Type":"application/json"}' spellcheck="false"></textarea>
+            <span id="headers-error" class="field-error" role="alert"></span>
+          </label>
+          <label for="body">REQUEST BODY
+            <textarea id="body" placeholder="Optional JSON or text payload" spellcheck="false"></textarea>
+          </label>
+        </div>
+        <div class="grid">
+          <label for="customScript">CUSTOM SCRIPT (JS)
+            <textarea id="customScript" placeholder="return true;" spellcheck="false"></textarea>
+          </label>
+          <div style="display:flex; flex-direction: column;">
+            <label for="templating" class="check-label" style="margin-top:20px; padding:12px;">TEMPLATE RENDERING <input id="templating" type="checkbox" checked></label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <label for="rateLimit" style="margin-top:20px;">RATE LIMIT (REQ/S) <input id="rateLimit" type="number" min="0" value="0"></label>
+              <label for="thinkTime" style="margin-top:20px;">THINK TIME (MS) <input id="thinkTime" type="number" min="0" value="0" placeholder="0"></label>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Hidden advanced fields required by JS, placed here to avoid breaking logic -->
+        <div style="display:none;">
+          <input id="rateLimitWait" type="number" min="1" value="30000">
+          <input id="retryAttempts" type="number" min="1" max="20" value="3">
+          <input id="retryBase" type="number" min="0" value="250">
+          <input id="retryMax" type="number" min="0" value="3000">
+          <input id="circuitThreshold" type="number" min="1" max="100" value="50">
+          <input id="circuitTimeout" type="number" min="1" value="30000">
+          <input id="circuitWindow" type="number" min="1" value="20">
+          <input id="circuitWindowMs" type="number" min="1" value="60000">
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button id="run" type="submit" disabled>START STRESS TEST</button>
+        <button id="stop" type="button">ABORT TEST</button>
+        <button id="download" type="button" disabled>EXPORT REPORT</button>
+      </div>
+    </form>
+
+    <div class="progress-container">
+      <progress id="progress" value="0" max="0"></progress>
+    </div>
+    <p id="state" class="muted" aria-live="polite">SYSTEM INITIALIZING... <span id="version"></span></p>
+    
+    <div id="output-container">
+      <pre id="output" aria-live="polite">READY FOR INPUT.</pre>
+    </div>
+  </div>
 
   <script type="module">
-    import init, { run_stress_test, version } from './wasm_stress.js?v=16';
+    import init, { run_stress_test, version } from './wasm_stress.js?v=17';
 
     const $ = (id) => document.getElementById(id);
     const form = $('test-form');
     const runButton = $('run');
+    const stopButton = $('stop');
     const downloadButton = $('download');
+    const themeToggle = $('theme-toggle');
+    const wasmStatus = $('wasm-status');
+    const disclaimerModal = $('disclaimerModal');
+    const openDisclaimer = $('openDisclaimer');
+    const closeDisclaimer = $('closeDisclaimer');
+
+    // Theme initialization
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (savedTheme === 'dark') document.documentElement.classList.add('dark');
+
+    themeToggle.addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+      const isDark = document.documentElement.classList.contains('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      updateChartTheme(isDark);
+    });
+
+    function updateChartTheme(isDark) {
+      const chart = Chart.getChart('metricsChart');
+      if (chart) {
+        const textColor = isDark ? '#fafafa' : '#000000';
+        const mutedColor = isDark ? '#a1a1aa' : '#6b7280';
+        
+        chart.options.scales.y.title.color = textColor;
+        chart.options.scales.y.ticks.color = mutedColor;
+        chart.options.scales.x.ticks.color = mutedColor;
+        chart.data.datasets[0].borderColor = textColor;
+        chart.data.datasets[0].backgroundColor = isDark ? 'rgba(250,250,250,0.1)' : 'rgba(0,0,0,0.1)';
+        chart.update();
+      }
+    }
+    
     let lastReport = null;
+    let shouldStop = false;
+
+    openDisclaimer.addEventListener('click', (e) => {
+      e.preventDefault();
+      disclaimerModal.style.display = 'flex';
+    });
+
+    closeDisclaimer.addEventListener('click', () => {
+      disclaimerModal.style.display = 'none';
+    });
+
+    stopButton.addEventListener('click', () => {
+      shouldStop = true;
+      stopButton.disabled = true;
+      stopButton.textContent = 'Stopping...';
+      $('state').textContent = 'Stopping...';
+    });
 
     function clearErrors() {
       document.querySelectorAll('.field-error').forEach((node) => { node.textContent = ''; });
@@ -210,18 +476,26 @@
 
     function setRunning(running) {
       runButton.disabled = running || !runButton.dataset.ready;
+      runButton.style.display = running ? 'none' : 'block';
+      stopButton.style.display = running ? 'block' : 'none';
       $('state').textContent = running ? 'Running…' : $('state').textContent;
     }
 
     async function start() {
       try {
-        await init('./wasm_stress_bg.wasm?v=16');
+        wasmStatus.textContent = 'WASM: LOADING...';
+        wasmStatus.className = 'wasm-badge loading';
+        await init('./wasm_stress_bg.wasm?v=17');
+        wasmStatus.textContent = `WASM: READY (${version()})`;
+        wasmStatus.className = 'wasm-badge ready';
         $('version').textContent = version();
         $('state').textContent = 'Ready';
         $('state').className = 'muted success';
         runButton.dataset.ready = 'true';
         runButton.disabled = false;
       } catch (error) {
+        wasmStatus.textContent = 'WASM: FAILED';
+        wasmStatus.className = 'wasm-badge error';
         $('version').textContent = 'unavailable';
         $('state').textContent = 'WASM initialization failed';
         $('state').className = 'error';
@@ -253,6 +527,33 @@
       const successful = reports.reduce((sum, item) => sum + Number(item.successful_requests || 0), 0);
       const failed = reports.reduce((sum, item) => sum + Number(item.failed_requests || 0), 0);
       const latencySum = reports.reduce((sum, item) => sum + Number(item.avg_latency_ms || 0) * Number(item.successful_requests || 0), 0);
+      
+      let p50Sum = 0, p90Sum = 0, p95Sum = 0, p99Sum = 0;
+      const timeSeriesMap = new Map();
+      
+      reports.forEach(r => {
+        if (r.latency_percentiles) {
+            p50Sum += (r.latency_percentiles.p50 || 0) * (r.successful_requests || 0);
+            p90Sum += (r.latency_percentiles.p90 || 0) * (r.successful_requests || 0);
+            p95Sum += (r.latency_percentiles.p95 || 0) * (r.successful_requests || 0);
+            p99Sum += (r.latency_percentiles.p99 || 0) * (r.successful_requests || 0);
+        }
+        if (r.time_series) {
+            r.time_series.forEach(ts => {
+                if (!timeSeriesMap.has(ts.second)) timeSeriesMap.set(ts.second, { reqs: 0, latSum: 0 });
+                const entry = timeSeriesMap.get(ts.second);
+                entry.reqs += ts.requests;
+                entry.latSum += (ts.avg_latency_ms * ts.requests);
+            });
+        }
+      });
+      
+      const consolidatedTimeSeries = Array.from(timeSeriesMap.entries()).map(([sec, data]) => ({
+          second: sec,
+          requests: data.reqs,
+          avg_latency_ms: data.reqs > 0 ? data.latSum / data.reqs : 0
+      })).sort((a, b) => a.second - b.second);
+
       const totalTime = durationSeconds * 1000;
       const merged = {
         ...last,
@@ -261,8 +562,16 @@
         total_requests: totalRequests,
         successful_requests: successful,
         failed_requests: failed,
+        total_bytes: reports.reduce((sum, item) => sum + Number(item.total_bytes || 0), 0),
+        bytes_received: reports.reduce((sum, item) => sum + Number(item.bytes_received || 0), 0),
         total_time_ms: totalTime,
         avg_latency_ms: successful ? latencySum / successful : 0,
+        latency_percentiles: {
+            p50: successful ? p50Sum / successful : 0,
+            p90: successful ? p90Sum / successful : 0,
+            p95: successful ? p95Sum / successful : 0,
+            p99: successful ? p99Sum / successful : 0,
+        },
         throughput_per_second: durationSeconds ? totalRequests / durationSeconds : 0,
         failed_assertions: reports.reduce((sum, item) => sum + Number(item.failed_assertions || 0), 0),
         rate_limit_hits: reports.reduce((sum, item) => sum + Number(item.rate_limit_hits || 0), 0),
@@ -274,13 +583,115 @@
         error_breakdown: {},
         status_code_distribution: {},
         error_details: reports.flatMap((item) => item.error_details || []),
-        time_series: reports.flatMap((item) => item.time_series || [])
+        time_series: consolidatedTimeSeries
       };
       reports.forEach((item) => {
         addMaps(merged.error_breakdown, item.error_breakdown);
         addMaps(merged.status_code_distribution, item.status_code_distribution);
       });
       return merged;
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === undefined || bytes === null || isNaN(bytes) || bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      const val = parseFloat((bytes / Math.pow(k, i)).toFixed(2));
+      return `${val} ${sizes[i]}`;
+    }
+
+    function renderReportHTML(result) {
+      const totalBytes = result.total_bytes || result.bytes_received || 0;
+      const bw = totalBytes > 0 ? formatBytes(totalBytes) : 'N/A\n(Est.)';
+
+      let html = `<div class="report-grid">
+      <div class="report-card"><h3>Total Requests</h3><p>${result.total_requests}</p></div>
+      <div class="report-card success"><h3>Successful</h3><p>${result.successful_requests}</p></div>
+      <div class="report-card ${result.failed_requests > 0 ? 'error' : ''}"><h3>Failed</h3><p>${result.failed_requests}</p></div>
+      <div class="report-card"><h3>Avg Latency</h3><p>${result.avg_latency_ms ? result.avg_latency_ms.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:#6b7280;">ms</span></p></div>
+      <div class="report-card"><h3>Throughput</h3><p>${result.throughput_per_second ? result.throughput_per_second.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:#6b7280;">req/s</span></p></div>
+      
+      <div class="report-card"><h3>Bandwidth</h3><p style="font-size: 1.2rem;">${bw}</p></div>
+    </div>`;
+    
+      html += `<div class="report-grid" style="margin-top: 16px;">
+        <div class="report-card" style="background:#f9fafb;"><h3>p50 Latency</h3><p>${result.latency_percentiles?.p50 ? result.latency_percentiles.p50.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:#6b7280;">ms</span></p></div>
+        <div class="report-card" style="background:#f9fafb;"><h3>p90 Latency</h3><p>${result.latency_percentiles?.p90 ? result.latency_percentiles.p90.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:#6b7280;">ms</span></p></div>
+        <div class="report-card" style="background:#f9fafb;"><h3>p95 Latency</h3><p>${result.latency_percentiles?.p95 ? result.latency_percentiles.p95.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:#6b7280;">ms</span></p></div>
+        <div class="report-card" style="background:#f9fafb;"><h3>p99 Latency</h3><p>${result.latency_percentiles?.p99 ? result.latency_percentiles.p99.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:#6b7280;">ms</span></p></div>
+      </div>`;
+      
+      if (result.response_size_percentiles) {
+        html += `<div class="report-grid" style="margin-top: 16px;">
+          <div class="report-card" style="background:#f0fdf4; border-color: #22c55e;">
+            <h3 style="color:#166534;">p50 Size</h3>
+            <p>${formatBytes(result.response_size_percentiles.p50)}</p>
+          </div>
+          <div class="report-card" style="background:#f0fdf4; border-color: #22c55e;">
+            <h3 style="color:#166534;">p90 Size</h3>
+            <p>${formatBytes(result.response_size_percentiles.p90)}</p>
+          </div>
+          <div class="report-card" style="background:#f0fdf4; border-color: #22c55e;">
+            <h3 style="color:#166534;">p95 Size</h3>
+            <p>${formatBytes(result.response_size_percentiles.p95)}</p>
+          </div>
+          <div class="report-card" style="background:#f0fdf4; border-color: #22c55e;">
+            <h3 style="color:#166534;">p99 Size</h3>
+            <p>${formatBytes(result.response_size_percentiles.p99)}</p>
+          </div>
+        </div>`;
+      }
+      
+      html += `<div style="margin-top: 32px; border: 2px solid #000; padding: 16px; background: #fff;">
+        <h3 style="margin-top:0; font-size: 1rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">Time-Series Analytics</h3>
+        <canvas id="metricsChart" style="width:100%; max-height: 300px;"></canvas>
+      </div>`;
+
+      if (result.failed_requests > 0) {
+        html += `<div class="cors-notice">
+          <strong>Notice:</strong> Some requests may fail due to browser CORS policies, but they still generate load on the server. To keep the report accurate, they are counted as unsuccessful.
+        </div>`;
+      }
+
+      html += `<div class="details-table-wrapper" style="width: 100%; overflow-x: auto;">
+        <table class="details-table">
+          <thead>
+            <tr>
+              <th>STATUS CODE</th>
+              <th>COUNT</th>
+            </tr>
+          </thead>
+          <tbody>`;
+      
+      const statusCodes = Object.entries(result.status_code_distribution || {});
+      if (statusCodes.length === 0) {
+        html += `<tr><td colspan="2">No status codes recorded.</td></tr>`;
+      } else {
+        statusCodes.forEach(([code, count]) => {
+          html += `<tr><td>${code}</td><td>${count}</td></tr>`;
+        });
+      }
+      html += `</tbody></table></div>`;
+
+      if (result.error_details && result.error_details.length > 0) {
+        html += `<h3 style="color: #9edff0; margin-top: 24px; margin-bottom: 8px; font-size: 1rem;">Recent Errors / Request Failures</h3>`;
+        html += `<div class="details-table-wrapper">
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>Error Message</th>
+              </tr>
+            </thead>
+            <tbody>`;
+        const sampleErrors = result.error_details.slice(-10); // Show last 10 errors
+        sampleErrors.forEach(err => {
+          html += `<tr><td class="err-msg">${String(err).replace(/</g, '&lt;')}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+      }
+
+      return html;
     }
 
     form.addEventListener('submit', async (event) => {
@@ -306,7 +717,9 @@
       const circuitWindow = Number($('circuitWindow').value);
       const circuitWindowMs = Number($('circuitWindowMs').value);
       const timeout = Number($('timeout').value);
-      const expectedStatus = 0;
+      const thinkTimeNumber = Number($('thinkTime').value);
+      const thinkTime = thinkTimeNumber > 0 ? thinkTimeNumber : undefined;
+      const expectedStatus = Number($('expectedStatus').value) || 0;
       const durationMs = requestTime * 1000;
       const startedAt = performance.now();
       const reports = [];
@@ -314,8 +727,11 @@
       $('progress').value = 0;
       $('state').className = 'muted';
       $('state').textContent = `Running for ${requestTime}s…`;
-      $('output').textContent = '';
+      $('output-container').innerHTML = '';
       lastReport = null;
+      shouldStop = false;
+      stopButton.disabled = false;
+      stopButton.textContent = 'Stop test';
       downloadButton.disabled = true;
       setRunning(true);
 
@@ -323,6 +739,7 @@
         // Run small batches until the requested wall-clock duration expires.
         // This keeps the existing WASM ABI compatible while making the UI duration-driven.
         do {
+          if (shouldStop) break;
           const batchStarted = performance.now();
           const batch = await run_stress_test(
             normalizeTarget($('url').value), concurrency, concurrency, method, headersJson, requestBody,
@@ -341,26 +758,102 @@
             $('wafRandomHeaders').checked ? true : undefined,
             rateLimitWait, retryBase, retryMax,
             BigInt(circuitTimeout), circuitWindow, BigInt(circuitWindowMs), true,
-            $('templating').checked
+            $('templating').checked,
+            thinkTime
           );
           reports.push(batch);
           const elapsed = performance.now() - startedAt;
           $('progress').value = Math.min(durationMs, elapsed);
           $('state').textContent = `Running for ${requestTime}s… ${Math.round((Math.min(durationMs, elapsed) / durationMs) * 100)}%`;
+          
+          if (shouldStop) break;
           if (performance.now() - batchStarted <= 0) break;
         } while (performance.now() - startedAt < durationMs);
 
-        const result = mergeReports(reports, requestTime);
+        const actualDuration = shouldStop ? (performance.now() - startedAt) / 1000 : requestTime;
+        const result = mergeReports(reports, actualDuration);
         lastReport = result;
-        $('progress').value = durationMs;
+        $('progress').value = shouldStop ? (performance.now() - startedAt) : durationMs;
         downloadButton.disabled = false;
-        $('output').textContent = JSON.stringify(result, null, 2);
-        $('state').textContent = 'Finished';
+        $('output-container').innerHTML = renderReportHTML(result);
+        
+        if (result.time_series && result.time_series.length > 0) {
+          const ctx = document.getElementById('metricsChart').getContext('2d');
+          const isDark = document.documentElement.classList.contains('dark');
+          const textColor = isDark ? '#fafafa' : '#000000';
+          const mutedColor = isDark ? '#a1a1aa' : '#6b7280';
+
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: result.time_series.map((ts, idx) => {
+                const d = new Date(ts.second * 1000);
+                return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+              }),
+              datasets: [
+                {
+                  label: 'Requests/sec',
+                  data: result.time_series.map(ts => ts.requests),
+                  borderColor: textColor,
+                  backgroundColor: isDark ? 'rgba(250,250,250,0.1)' : 'rgba(0,0,0,0.1)',
+                  borderWidth: 2,
+                  yAxisID: 'y',
+                  tension: 0.1,
+                  pointRadius: 2
+                },
+                {
+                  label: 'Avg Latency (ms)',
+                  data: result.time_series.map(ts => ts.avg_latency_ms),
+                  borderColor: '#22c55e',
+                  backgroundColor: 'rgba(34,197,94,0.1)',
+                  borderWidth: 2,
+                  yAxisID: 'y1',
+                  tension: 0.1,
+                  pointRadius: 2
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false },
+              scales: {
+                y: { 
+                  type: 'linear', 
+                  display: true, 
+                  position: 'left', 
+                  title: { display: true, text: 'Req/s', color: textColor, font: { weight: 'bold' } },
+                  ticks: { color: mutedColor },
+                  grid: { color: isDark ? 'rgba(250,250,250,0.1)' : 'rgba(0,0,0,0.1)' }
+                },
+                y1: { 
+                  type: 'linear', 
+                  display: true, 
+                  position: 'right', 
+                  grid: { drawOnChartArea: false, color: isDark ? 'rgba(250,250,250,0.1)' : 'rgba(0,0,0,0.1)' }, 
+                  title: { display: true, text: 'Latency', color: '#22c55e', font: { weight: 'bold' } },
+                  ticks: { color: mutedColor }
+                },
+                x: {
+                  ticks: { color: mutedColor },
+                  grid: { color: isDark ? 'rgba(250,250,250,0.1)' : 'rgba(0,0,0,0.1)' }
+                }
+              },
+              plugins: {
+                legend: {
+                  labels: { color: textColor }
+                }
+              }
+            }
+          });
+        }
+
+        $('state').textContent = shouldStop ? 'Test stopped early' : 'Finished';
         $('state').className = 'muted success';
       } catch (error) {
         $('state').textContent = 'Test failed';
         $('state').className = 'error';
-        $('output').textContent = readableError(error);
+        $('output-container').innerHTML = `<pre id="output" aria-live="polite">${readableError(error)}</pre>`;
       } finally {
         setRunning(false);
       }
