@@ -1169,7 +1169,7 @@
 
       async runPartitionedBatch(baseConfig, partitions) {
         const tasks = this.workers.map((worker, index) => {
-          const concurrencyPart = partitions[index] || 1;
+          const concurrencyPart = Number(partitions[index] || 0);
           if (concurrencyPart <= 0) return Promise.resolve(null);
           
           const workerConfig = { ...baseConfig, concurrency: concurrencyPart };
@@ -1561,10 +1561,13 @@
             // Partition requests across worker threads using Rust WASM partitioner
             let partitions = [];
             try {
-              partitions = partition_requests_for_workers(concurrency, workerCount);
+              const rawPartitions = partition_requests_for_workers(concurrency, workerCount);
+              // Extract sizes from WorkPartition objects {worker_id, start, end}
+              partitions = rawPartitions.map(p => p.end - p.start);
             } catch (_) {
-              const per = Math.floor(concurrency / workerCount) || 1;
-              partitions = new Array(workerCount).fill(per);
+              const per = Math.floor(concurrency / workerCount);
+              const remainder = concurrency % workerCount;
+              partitions = new Array(workerCount).fill(0).map((_, i) => per + (i < remainder ? 1 : 0));
             }
 
             const workerBatches = await pool.runPartitionedBatch(currentConfig, partitions);
