@@ -20,6 +20,7 @@ impl RequestInterceptor for WafBypassInterceptor {
 }
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -108,18 +109,12 @@ pub struct StressTestReport {
     pub timeout_count: u32,
     pub network_error_count: u32,
     pub throughput_per_second: f64,
-    pub total_bytes: u64,
-    pub bytes_sent: u64,
-    pub bytes_received: u64,
-    pub bandwidth_kbps: f64,
-    pub sla_violations: u32,
-    pub sla_compliance_percent: f64,
     pub error_breakdown: BTreeMap<String, u32>,
     pub status_code_distribution: BTreeMap<String, u32>,
     pub latency_percentiles: LatencyPercentiles,
-    pub response_size_percentiles: Option<LatencyPercentiles>,
     pub avg_ttfb_ms: f64,
     pub error_details: Vec<ErrorDetail>,
+    // নতুন: প্রতি সেকেন্ডের মেট্রিক্স
     pub time_series: Vec<TimeSeriesPoint>,
 }
 
@@ -150,95 +145,26 @@ async fn sleep(ms: u32) {
     }
 }
 
-/// অ্যাডভান্সড ডাইনামিক পে-লোড ও ফাকার মক ইঞ্জিন:
-/// {{index}}, {{random}}, {{random.int}}, {{random.uuid}}, {{uuid}},
-/// {{random.email}}, {{email}}, {{random.ip}}, {{ip}}, {{random.name}},
-/// {{random.boolean}}, {{random.alphanumeric}}, {{token}}, {{timestamp}}, {{date.now}}
+/// টেমপ্লেট রেন্ডার: {{index}}, {{random}}, {{timestamp}} প্রতিস্থাপন
 fn render_template(template: &str, index: u32) -> String {
     let mut result = template.to_string();
-
     // {{index}}
     result = result.replace("{{index}}", &index.to_string());
-
-    // {{random}} & {{random.int}} -> 1-1,000,000
-    let rand_val = (js_sys::Math::random() * 1_000_000.0) as u32 + 1;
+    // {{random}} -> 1-1000000
+    let rand_val = (js_sys::Math::random() * 1_000_000.0) as u32;
     result = result.replace("{{random}}", &rand_val.to_string());
-    result = result.replace("{{random.int}}", &rand_val.to_string());
-
-    // {{random.uuid}} & {{uuid}} -> RFC4122 v4 compliant mock
-    if result.contains("{{random.uuid}}") || result.contains("{{uuid}}") {
-        let u1 = (js_sys::Math::random() * 4294967296.0) as u32;
-        let u2 = ((js_sys::Math::random() * 65536.0) as u32) | 0x4000;
-        let u3 = ((js_sys::Math::random() * 65536.0) as u32) | 0x8000;
-        let u4 = (js_sys::Math::random() * 281474976710656.0) as u64;
-        let uuid = format!("{:08x}-{:04x}-{:04x}-{:012x}", u1, u2, u3, u4);
-        result = result.replace("{{random.uuid}}", &uuid);
-        result = result.replace("{{uuid}}", &uuid);
-    }
-
-    // {{random.email}} & {{email}}
-    if result.contains("{{random.email}}") || result.contains("{{email}}") {
-        let r = (js_sys::Math::random() * 900000.0) as u32 + 100000;
-        let email = format!("testuser_{r}@loadtest.local");
-        result = result.replace("{{random.email}}", &email);
-        result = result.replace("{{email}}", &email);
-    }
-
-    // {{random.ip}} & {{ip}} -> Valid non-reserved public IPv4
-    if result.contains("{{random.ip}}") || result.contains("{{ip}}") {
-        let o1 = (js_sys::Math::random() * 220.0) as u32 + 1;
-        let o2 = (js_sys::Math::random() * 255.0) as u32;
-        let o3 = (js_sys::Math::random() * 255.0) as u32;
-        let o4 = (js_sys::Math::random() * 254.0) as u32 + 1;
-        let ip = format!("{o1}.{o2}.{o3}.{o4}");
-        result = result.replace("{{random.ip}}", &ip);
-        result = result.replace("{{ip}}", &ip);
-    }
-
-    // {{random.name}} & {{name}}
-    if result.contains("{{random.name}}") || result.contains("{{name}}") {
-        let names = ["Alex Rivera", "Jordan Smith", "Taylor Chen", "Morgan Vance", "Samira Khan", "Devon Lee", "Aria Stark", "Leo Brooks"];
-        let idx = (js_sys::Math::random() * names.len() as f64) as usize;
-        let name = names[idx];
-        result = result.replace("{{random.name}}", name);
-        result = result.replace("{{name}}", name);
-    }
-
-    // {{random.boolean}}
-    if result.contains("{{random.boolean}}") {
-        let b = js_sys::Math::random() > 0.5;
-        result = result.replace("{{random.boolean}}", if b { "true" } else { "false" });
-    }
-
-    // {{random.alphanumeric}} & {{token}}
-    if result.contains("{{random.alphanumeric}}") || result.contains("{{token}}") {
-        let chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let mut token = String::with_capacity(16);
-        for _ in 0..16 {
-            let idx = (js_sys::Math::random() * chars.len() as f64) as usize;
-            token.push(chars[idx] as char);
-        }
-        result = result.replace("{{random.alphanumeric}}", &token);
-        result = result.replace("{{token}}", &token);
-    }
-
-    // {{timestamp}} & {{date.now}} -> Unix epoch in ms
+    // {{timestamp}} -> current Unix timestamp (ms)
     let ts = js_sys::Date::now() as u64;
     result = result.replace("{{timestamp}}", &ts.to_string());
-    result = result.replace("{{date.now}}", &ts.to_string());
-
     result
 }
 
-// ==================== Load Patterns ====================
+// ==================== Load Patterns (অপরিবর্তিত) ====================
 
 #[derive(Clone)]
 pub enum LoadPattern {
     Constant,
     RampUp {
-        duration_ms: u32,
-    },
-    RampDown {
         duration_ms: u32,
     },
     Spike {
@@ -252,13 +178,6 @@ pub enum LoadPattern {
         step_size: u32,
         step_duration_ms: u32,
     },
-    StepLadder {
-        steps: u32,
-        max_delay_ms: u32,
-    },
-    Poisson {
-        mean_delay_ms: f64,
-    },
     Random,
 }
 
@@ -267,11 +186,7 @@ impl LoadPattern {
         match self {
             LoadPattern::Constant => 0,
             LoadPattern::RampUp { duration_ms } => {
-                ((current as f64 / total.max(1) as f64) * *duration_ms as f64) as u32
-            }
-            LoadPattern::RampDown { duration_ms } => {
-                let remaining = total.saturating_sub(current);
-                ((remaining as f64 / total.max(1) as f64) * *duration_ms as f64) as u32
+                ((current as f64 / total as f64) * *duration_ms as f64) as u32
             }
             LoadPattern::Spike { intensity } => {
                 let half = total / 2;
@@ -288,7 +203,7 @@ impl LoadPattern {
                 amplitude,
                 frequency,
             } => {
-                let progress = current as f64 / total.max(1) as f64;
+                let progress = current as f64 / total as f64;
                 let wave = (progress * std::f64::consts::PI * 2.0 * frequency).sin();
                 (wave.abs() * amplitude) as u32
             }
@@ -296,19 +211,8 @@ impl LoadPattern {
                 step_size,
                 step_duration_ms,
             } => {
-                let step = current / step_size.max(&1);
+                let step = current / step_size;
                 step * step_duration_ms
-            }
-            LoadPattern::StepLadder { steps, max_delay_ms } => {
-                let s = (*steps).max(1);
-                let current_step = ((current as f64 / total.max(1) as f64) * s as f64).floor() as u32;
-                let step_ratio = (s.saturating_sub(current_step.min(s - 1))) as f64 / s as f64;
-                (step_ratio * *max_delay_ms as f64) as u32
-            }
-            LoadPattern::Poisson { mean_delay_ms } => {
-                // Inversion method: delay = -ln(1 - U) * mean
-                let u = js_sys::Math::random().max(0.0001).min(0.9999);
-                ((-1.0 * (1.0 - u).ln()) * mean_delay_ms) as u32
             }
             LoadPattern::Random => (js_sys::Math::random() * 1000.0) as u32,
         }
@@ -747,13 +651,9 @@ struct MetricsCollector {
     total_latency: Rc<RefCell<f64>>,
     total_ttfb: Rc<RefCell<f64>>,
     ttfb_count: Rc<RefCell<u32>>,
-    total_bytes: Rc<RefCell<u64>>,
-    bytes_sent: Rc<RefCell<u64>>,
-    sla_violations: Rc<RefCell<u32>>,
     status_codes: Rc<RefCell<HashMap<u16, u32>>>,
     // HdrHistogram
     histogram: Rc<RefCell<Histogram<u64>>>,
-    response_size_histogram: Rc<RefCell<Histogram<u64>>>,
     // Time-series: key = সেকেন্ড, value = (count, sum_latency)
     time_series: Rc<RefCell<HashMap<u64, (u32, f64)>>>,
 }
@@ -761,7 +661,6 @@ struct MetricsCollector {
 impl MetricsCollector {
     fn new() -> Self {
         let hist = Histogram::<u64>::new(3).expect("Failed to create histogram"); // 3 significant digits
-        let size_hist = Histogram::<u64>::new(3).expect("Failed to create size histogram");
         Self {
             total_requests: Rc::new(RefCell::new(0)),
             successful_requests: Rc::new(RefCell::new(0)),
@@ -769,17 +668,13 @@ impl MetricsCollector {
             total_latency: Rc::new(RefCell::new(0.0)),
             total_ttfb: Rc::new(RefCell::new(0.0)),
             ttfb_count: Rc::new(RefCell::new(0)),
-            total_bytes: Rc::new(RefCell::new(0)),
-            bytes_sent: Rc::new(RefCell::new(0)),
-            sla_violations: Rc::new(RefCell::new(0)),
             status_codes: Rc::new(RefCell::new(HashMap::new())),
             histogram: Rc::new(RefCell::new(hist)),
-            response_size_histogram: Rc::new(RefCell::new(size_hist)),
             time_series: Rc::new(RefCell::new(HashMap::new())),
         }
     }
 
-    fn record_success(&self, latency_ms: f64, ttfb_ms: Option<f64>, response_bytes: Option<u64>) {
+    fn record_success(&self, latency_ms: f64, ttfb_ms: Option<f64>) {
         let mut total = self.total_requests.borrow_mut();
         *total += 1;
         *self.successful_requests.borrow_mut() += 1;
@@ -787,10 +682,6 @@ impl MetricsCollector {
         if let Some(ttfb) = ttfb_ms {
             *self.total_ttfb.borrow_mut() += ttfb;
             *self.ttfb_count.borrow_mut() += 1;
-        }
-        if let Some(bytes) = response_bytes {
-            *self.total_bytes.borrow_mut() += bytes;
-            let _ = self.response_size_histogram.borrow_mut().record(bytes);
         }
         // Histogram-এ মাইক্রোসেকেন্ডে সংরক্ষণ
         let micros = (latency_ms * 1000.0) as u64;
@@ -801,18 +692,6 @@ impl MetricsCollector {
         let entry = ts.entry(sec).or_insert((0, 0.0));
         entry.0 += 1;
         entry.1 += latency_ms;
-    }
-
-    fn record_bytes_sent(&self, bytes: u64) {
-        *self.bytes_sent.borrow_mut() += bytes;
-    }
-
-    fn record_sla(&self, latency_ms: f64, threshold_ms: Option<f64>) {
-        if let Some(sla) = threshold_ms {
-            if latency_ms > sla {
-                *self.sla_violations.borrow_mut() += 1;
-            }
-        }
     }
 
     fn record_failure(&self) {
@@ -876,23 +755,6 @@ impl MetricsCollector {
             p99: hist.value_at_percentile(99.0) as f64 / 1000.0,
             p999: hist.value_at_percentile(99.9) as f64 / 1000.0,
         }
-    }
-
-    fn get_size_percentiles(&self) -> Option<LatencyPercentiles> {
-        let hist = self.response_size_histogram.borrow();
-        if hist.len() == 0 {
-            return None;
-        }
-        Some(LatencyPercentiles {
-            p10: hist.value_at_percentile(10.0) as f64,
-            p25: hist.value_at_percentile(25.0) as f64,
-            p50: hist.value_at_percentile(50.0) as f64,
-            p75: hist.value_at_percentile(75.0) as f64,
-            p90: hist.value_at_percentile(90.0) as f64,
-            p95: hist.value_at_percentile(95.0) as f64,
-            p99: hist.value_at_percentile(99.0) as f64,
-            p999: hist.value_at_percentile(99.9) as f64,
-        })
     }
 
     fn get_min_max_avg(&self) -> (f64, f64, f64) {
@@ -996,8 +858,8 @@ pub async fn run_stress_test(
     circuit_window_size: Option<usize>,
     circuit_window_ms: Option<u64>,
     reset_window_on_probe_success: Option<bool>,
+    // নতুন প্যারামিটার: টেমপ্লেটিং সক্রিয় করবে কিনা
     enable_templating: Option<bool>,
-    think_time_ms: Option<u32>,
 ) -> Result<JsValue, JsValue> {
     console_error_panic_hook::set_once();
 
@@ -1034,7 +896,6 @@ pub async fn run_stress_test(
     let pattern = match load_pattern.as_str() {
         "constant" => LoadPattern::Constant,
         "ramp-up" => LoadPattern::RampUp { duration_ms: 3000 },
-        "ramp-down" => LoadPattern::RampDown { duration_ms: 3000 },
         "spike" => LoadPattern::Spike { intensity: 5.0 },
         "wave" => LoadPattern::Wave {
             amplitude: 1000.0,
@@ -1043,13 +904,6 @@ pub async fn run_stress_test(
         "step" => LoadPattern::Step {
             step_size: 10,
             step_duration_ms: 500,
-        },
-        "step-ladder" => LoadPattern::StepLadder {
-            steps: 4,
-            max_delay_ms: 800,
-        },
-        "poisson" => LoadPattern::Poisson {
-            mean_delay_ms: 50.0,
         },
         "random" => LoadPattern::Random,
         _ => return Err(JsValue::from_str("Unknown load pattern")),
@@ -1139,7 +993,7 @@ pub async fn run_stress_test(
     });
 
     // ---- রিকোয়েস্ট স্ট্রিম (অন-ডিমান্ড) ----
-            let tx_for_requests = tx.clone();
+    let tx_for_requests = tx.clone();
 
     // আমরা `futures::stream::unfold` ব্যবহার করছি যাতে প্রতিটি রিকোয়েস্ট শুধু তখনই তৈরি হয়
     let request_stream = stream::unfold(
@@ -1147,7 +1001,6 @@ pub async fn run_stress_test(
             0,
             total_requests,
             enable_templating,
-            think_time_ms,
             url.clone(),
             method.clone(),
             headers_obj.clone(),
@@ -1177,7 +1030,6 @@ pub async fn run_stress_test(
                 idx,
                 total,
                 enable_templating,
-                think_time,
                 url,
                 method,
                 headers_obj,
@@ -1212,7 +1064,6 @@ pub async fn run_stress_test(
                 idx + 1,
                 total,
                 enable_templating,
-                think_time,
                 url.clone(),
                 method.clone(),
                 headers_obj.clone(),
@@ -1253,15 +1104,6 @@ pub async fn run_stress_test(
                 let delay = pattern.calculate_delay(i, total);
                 if delay > 0 {
                     sleep(delay).await;
-                }
-                
-                if let Some(think_ms) = think_time {
-                    if think_ms > 0 {
-                        // Randomize think time a bit (e.g., +/- 20%)
-                        let jitter = (js_sys::Math::random() * 0.4 - 0.2) * (think_ms as f64);
-                        let actual_think = (think_ms as f64 + jitter).max(1.0) as u32;
-                        sleep(actual_think).await;
-                    }
                 }
 
                 // Circuit check
@@ -1307,7 +1149,7 @@ pub async fn run_stress_test(
                     match &script_result {
                         Ok(passed) => {
                             if *passed {
-                                metrics.record_success(latency, None, None);
+                                metrics.record_success(latency, None);
                                 metrics.record_status(0);
                             } else {
                                 metrics.record_failure();
@@ -1336,6 +1178,8 @@ pub async fn run_stress_test(
                             let timeout_ms = timeout_ms;
                             let expected_status = expected_status;
                             let expected_text = expected_text.clone();
+                            let timeout_count = timeout_count.clone();
+                            let network_error_count = network_error_count.clone();
                             let interceptors = interceptors.clone();
                             let metrics = metrics.clone();
 
@@ -1352,10 +1196,10 @@ pub async fn run_stress_test(
                                     req_context = interceptor.intercept_request(req_context);
                                 }
 
-                                let opts = RequestInit::new();
-                                opts.set_method(&req_context.method);
-                                opts.set_mode(RequestMode::Cors);
-                                opts.set_redirect(if follow_redirects {
+                                let mut opts = RequestInit::new();
+                                opts.method(&req_context.method);
+                                opts.mode(RequestMode::Cors);
+                                opts.redirect(if follow_redirects {
                                     RequestRedirect::Follow
                                 } else {
                                     RequestRedirect::Manual
@@ -1363,7 +1207,7 @@ pub async fn run_stress_test(
 
                                 if req_context.method != "GET" && req_context.method != "HEAD" {
                                     if let Some(b) = &req_context.body {
-                                        opts.set_body(&JsValue::from_str(b));
+                                        opts.body(Some(&JsValue::from_str(b)));
                                     }
                                 }
 
@@ -1388,14 +1232,11 @@ pub async fn run_stress_test(
                                 for (k, v) in &req_context.headers {
                                     let _ = headers.set(k, v);
                                 }
-                                // HTTP tuning: cache bypass & connection freshness
-                                let _ = headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
-                                let _ = headers.set("Pragma", "no-cache");
-                                opts.set_headers(&headers);
+                                opts.headers(&headers);
 
                                 let abort_controller = AbortController::new()
                                     .map_err(|_| StressError::InvalidConfiguration("Failed to create AbortController".into()))?;
-                                opts.set_signal(Some(&abort_controller.signal()));
+                                opts.signal(Some(&abort_controller.signal()));
 
                                 // RAII গার্ড
                                 let _guard = if let Some(t) = req_context.timeout_ms {
@@ -1462,23 +1303,6 @@ pub async fn run_stress_test(
                                         }
 
                                         let full_latency = performance.now() - req_start;
-                                        
-                                        let response_bytes = if let Some(text) = &body_text {
-                                            Some(text.len() as u64)
-                                        } else {
-                                            // If we haven't consumed the body yet (body_text is None),
-                                            // we try to get the size by consuming it as an ArrayBuffer.
-                                            // This is more reliable than content-length header which is often blocked by CORS.
-                                            match resp.array_buffer() {
-                                                Ok(promise) => {
-                                                    match JsFuture::from(promise).await {
-                                                        Ok(ab) => Some(js_sys::Uint8Array::new(&ab).length() as u64),
-                                                        Err(_) => resp.headers().get("content-length").ok().flatten().and_then(|s| s.parse::<u64>().ok())
-                                                    }
-                                                }
-                                                Err(_) => resp.headers().get("content-length").ok().flatten().and_then(|s| s.parse::<u64>().ok())
-                                            }
-                                        };
 
                                         let resp_context = ResponseContext {
                                             status,
@@ -1493,7 +1317,7 @@ pub async fn run_stress_test(
                                         if is_retryable_status(status) {
                                             Err(StressError::HttpStatus(status))
                                         } else if passed {
-                                            Ok((full_latency, true, Some(status), Some(ttfb), response_bytes))
+                                            Ok((full_latency, true, Some(status), Some(ttfb)))
                                         } else {
                                             let msg = if expected_status > 0 && status != expected_status {
                                                 format!("Status: {}, Expected: {}", status, expected_status)
@@ -1527,14 +1351,10 @@ pub async fn run_stress_test(
                     let success = http_result.is_ok();
                     circuit_breaker.record(success);
 
-                    let sent_bytes = final_body.as_ref().map(|b| b.len() as u64).unwrap_or(0);
-                    metrics.record_bytes_sent(sent_bytes);
-
                     match &http_result {
-                        Ok((latency, passed, _status_opt, ttfb_opt, bytes_opt)) => {
-                            metrics.record_sla(*latency, timeout_ms.map(|t| t as f64));
+                        Ok((latency, passed, status_opt, ttfb_opt)) => {
                             if *passed {
-                                metrics.record_success(*latency, *ttfb_opt, *bytes_opt);
+                                metrics.record_success(*latency, *ttfb_opt);
                             } else {
                                 metrics.record_failure();
                             }
@@ -1558,7 +1378,7 @@ pub async fn run_stress_test(
                     *completed_count.borrow_mut() = current;
                     let _ = tx.unbounded_send(current);
 
-                    http_result.map(|(latency, passed, status, ttfb_opt, _)| {
+                    http_result.map(|(latency, passed, status, ttfb_opt)| {
                         (latency, passed, status, ttfb_opt)
                     })
                 };
@@ -1664,27 +1484,13 @@ pub async fn run_stress_test(
 
     let time_series = metrics.get_time_series();
 
-    let total_bytes_rcv = *metrics.total_bytes.borrow();
-    let total_bytes_sent = *metrics.bytes_sent.borrow();
-    let bandwidth_kbps = if total_time > 0.0 {
-        ((total_bytes_rcv + total_bytes_sent) as f64 / 1024.0) / (total_time / 1000.0)
-    } else {
-        0.0
-    };
-    let sla_violations = *metrics.sla_violations.borrow();
-    let sla_compliance_percent = if successful_metrics > 0 {
-        ((successful_metrics.saturating_sub(sla_violations)) as f64 / successful_metrics as f64) * 100.0
-    } else {
-        100.0
-    };
-
     let report = StressTestReport {
         total_requests,
         successful_requests: successful_metrics,
         failed_requests: failed_metrics,
         total_time_ms: total_time,
-        min_latency_ms: if min_latency.is_finite() { min_latency } else { 0.0 },
-        max_latency_ms: if max_latency.is_finite() { max_latency } else { 0.0 },
+        min_latency_ms: min_latency,
+        max_latency_ms: max_latency,
         avg_latency_ms: avg_latency,
         p50_latency_ms: percentiles.p50,
         p95_latency_ms: percentiles.p95,
@@ -1698,16 +1504,9 @@ pub async fn run_stress_test(
         timeout_count: *timeout_count.borrow(),
         network_error_count: *network_error_count.borrow(),
         throughput_per_second: throughput,
-        total_bytes: total_bytes_rcv,
-        bytes_sent: total_bytes_sent,
-        bytes_received: total_bytes_rcv,
-        bandwidth_kbps,
-        sla_violations,
-        sla_compliance_percent,
         error_breakdown: error_breakdown_final,
         status_code_distribution: status_distribution,
         latency_percentiles: percentiles,
-        response_size_percentiles: metrics.get_size_percentiles(),
         avg_ttfb_ms: avg_ttfb,
         error_details,
         time_series,
@@ -1719,7 +1518,7 @@ pub async fn run_stress_test(
         .map_err(|_| JsValue::from_str("Failed to serialize report"))
 }
 
-// ==================== WebAssembly Bindings ====================
+// ==================== WebAssembly Bindings (অপরিবর্তিত) ====================
 
 #[wasm_bindgen]
 pub fn version() -> String {
@@ -1745,32 +1544,6 @@ pub fn validate_config(total_requests: u32, concurrency: u32) -> Result<JsValue,
     } else {
         Err(JsValue::from_str(&errors.join("; ")))
     }
-}
-
-/// Web Worker মাল্টি-থ্রেডিং পার্টিশনার
-#[wasm_bindgen]
-pub fn partition_requests_for_workers(total_requests: u32, workers: u32) -> Result<JsValue, JsValue> {
-    let partitions = extended_features::partition_requests(total_requests, workers);
-    serde_wasm_bindgen::to_value(&partitions)
-        .map_err(|e| JsValue::from_str(&e.to_string()))
-}
-
-/// ডাইনামিক টেমপ্লেট ও ফাকার টেস্ট প্রিভিউ
-#[wasm_bindgen]
-pub fn render_template_preview(template: String, index: u32) -> String {
-    render_template(&template, index)
-}
-
-/// কাস্টম অ্যাসারশন চেকার
-#[wasm_bindgen]
-pub fn evaluate_custom_assertion(status: u16, body: String, expected_status: u16, expected_text: String) -> bool {
-    if expected_status > 0 && status != expected_status {
-        return false;
-    }
-    if !expected_text.is_empty() && !body.contains(&expected_text) {
-        return false;
-    }
-    true
 }
 
 // ==================== Tests (উদাহরণস্বরূপ) ====================
@@ -1870,6 +1643,8 @@ mod extended_features {
 
     #[cfg(target_arch = "wasm32")]
     pub async fn run_websocket_test(url: String, config: WebSocketConfig) -> Result<u32, JsValue> {
+        use wasm_bindgen::JsCast;
+        use wasm_bindgen_futures::JsFuture;
         let ws = web_sys::WebSocket::new(&url).map_err(|e| JsValue::from(e))?;
         if let Some(protocol) = config.subprotocol.as_deref() {
             let _ = ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
