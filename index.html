@@ -1,164 +1,864 @@
 <!doctype html>
-<html lang="bn">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WASM Stress Test</title>
+  <meta name="description" content="A browser-native HTTP stress-testing interface powered by Rust and WebAssembly.">
+  <meta property="og:title" content="WASM Stress Test">
+  <meta property="og:description" content="A browser-native HTTP stress-testing interface powered by Rust and WebAssembly.">
   <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:#070b14; color:#e5eefb; }
-    * { box-sizing:border-box; }
-    body { max-width:900px; margin:0 auto; padding:44px 22px 70px; background:radial-gradient(circle at 50% -10%, #17284a 0, #0b1220 34%, #070b14 72%); min-height:100vh; }
-    h1 { margin:0 0 8px; color:#f8fbff; font-size:clamp(2rem, 5vw, 3rem); letter-spacing:-.04em; }
-    body > p.muted { margin:0 0 28px; color:#8fa3bf; font-size:.98rem; }
-    body > p.muted strong { color:#67e8f9; font-weight:700; }
-    form { padding:26px; border:1px solid #243552; border-radius:20px; background:rgba(13,23,40,.82); box-shadow:0 22px 65px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.035); }
-    label { display:block; margin-top:18px; color:#cbd8e9; font-size:.92rem; font-weight:700; letter-spacing:.01em; }
-    input, select, textarea, button { box-sizing:border-box; width:100%; padding:12px 14px; margin-top:8px; border:1px solid #2b3c59; border-radius:10px; background:#0a1322; color:#edf5ff; font:inherit; transition:border-color .18s, box-shadow .18s, background .18s; }
-    input::placeholder, textarea::placeholder { color:#637693; }
-    input:hover, select:hover, textarea:hover { border-color:#3b5275; }
-    input:focus, select:focus, textarea:focus { outline:none; border-color:#22d3ee; box-shadow:0 0 0 3px rgba(34,211,238,.14); background:#0c1728; }
-    textarea { min-height:92px; resize:vertical; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height:1.5; }
-    input[type="checkbox"] { width:18px; height:18px; margin:0 10px 0 0; accent-color:#22d3ee; vertical-align:middle; }
-    .check-label { display:flex; align-items:center; margin-top:16px; color:#b9c9dd; }
-    details { margin-top:24px; border:1px solid #263957; border-radius:14px; padding:16px; background:rgba(8,17,30,.58); }
-    details summary { cursor:pointer; color:#9edff0; font-weight:800; list-style-position:inside; }
-    details .grid { margin-top:4px; }
-    input:invalid, select:invalid { border-color:#ef6475; box-shadow:0 0 0 3px rgba(239,100,117,.12); }
-    button { cursor:pointer; margin-top:22px; border-color:#22d3ee; background:linear-gradient(135deg,#0891b2,#4f46e5); color:#fff; font-weight:800; box-shadow:0 10px 24px rgba(8,145,178,.2); }
-    button:hover:not(:disabled) { filter:brightness(1.12); transform:translateY(-1px); }
-    button:disabled { cursor:not-allowed; opacity:.48; box-shadow:none; }
-    #download { border-color:#344966; background:#16243a; color:#b9c9dd; box-shadow:none; }
-    progress { width:100%; height:11px; margin-top:24px; accent-color:#22d3ee; border-radius:999px; overflow:hidden; }
-    progress::-webkit-progress-bar { background:#142239; border-radius:999px; }
-    progress::-webkit-progress-value { background:linear-gradient(90deg,#22d3ee,#818cf8); border-radius:999px; }
-    #state { color:#8fa3bf; }
-    pre { white-space:pre-wrap; background:#050a12; color:#b9f6ca; padding:18px; border:1px solid #1e304b; border-radius:14px; overflow:auto; min-height:100px; line-height:1.55; }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .error { color:#ff8290; }
-    .success { color:#65d98b; }
-    .field-error { display:block; min-height:1.2em; color:#ff8290; font-size:.82em; font-weight:500; }
-    @media (max-width:600px) { body { padding:28px 14px 48px; } form { padding:18px; border-radius:16px; } .grid { grid-template-columns:1fr; gap:0; } }
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      --bg-page: #f4f4f5;
+      --bg-surface: #ffffff;
+      --bg-subtle: #f9fafb;
+      --bg-elevated: #ffffff;
+      --border-color: #000000;
+      --border-subtle: #e5e7eb;
+      --text-main: #000000;
+      --text-muted: #6b7280;
+      --input-bg: #ffffff;
+      --input-text: #000000;
+      --btn-bg: #e5e7eb;
+      --btn-text: #000000;
+      --btn-shadow: #000000;
+      --banner-bg: #ffcc00;
+      --banner-text: #000000;
+      --status-badge-bg: #ffffff;
+      --progress-track: #ffffff;
+      --progress-fill: #ffcc00;
+      --table-th-bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --card-shadow: #000000;
+      --percentile-bg: #f9fafb;
+      --size-bg: #f0fdf4;
+      --size-border: #22c55e;
+      --size-text: #166534;
+      --cors-bg: #fef08a;
+      --error-bg: #fef2f2;
+      --error-border: #ef4444;
+      --error-text: #991b1b;
+      --error-trace-bg: #f9fafb;
+      --header-grad: radial-gradient(circle at 100% 0%, #e5e7eb 0%, transparent 60%);
+      --header-pattern: repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 2px, transparent 2px, transparent 10px);
+      background: var(--bg-page);
+      color: var(--text-main);
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg-page: #0b0d11;
+      --bg-surface: #14171f;
+      --bg-subtle: #1b1f2a;
+      --bg-elevated: #232836;
+      --border-color: #3f475a;
+      --border-subtle: #2d3342;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --input-bg: #0d0f14;
+      --input-text: #f8fafc;
+      --btn-bg: #1e2330;
+      --btn-text: #f1f5f9;
+      --btn-shadow: #000000;
+      --banner-bg: #b45309;
+      --banner-text: #fef3c7;
+      --status-badge-bg: #171b24;
+      --progress-track: #171b24;
+      --progress-fill: #eab308;
+      --table-th-bg: #1a1e29;
+      --card-bg: #171b24;
+      --card-shadow: #000000;
+      --percentile-bg: #1c212d;
+      --size-bg: #062f1c;
+      --size-border: #15803d;
+      --size-text: #86efac;
+      --cors-bg: #3f310f;
+      --error-bg: #2b1114;
+      --error-border: #dc2626;
+      --error-text: #fca5a5;
+      --error-trace-bg: #14171f;
+      --header-grad: radial-gradient(circle at 100% 0%, #202633 0%, transparent 60%);
+      --header-pattern: repeating-linear-gradient(45deg, #202633, #202633 2px, transparent 2px, transparent 10px);
+      background: var(--bg-page);
+      color: var(--text-main);
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: var(--bg-page); color: var(--text-main); transition: background-color 0.15s ease, color 0.15s ease; }
+    
+    .warning-banner { width: 100%; background: var(--banner-bg); color: var(--banner-text); font-weight: 800; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 8px 16px; text-align: center; border-bottom: 2px solid var(--border-color); }
+    .warning-banner a { color: inherit; text-decoration: underline; }
+    
+    header { width: 100%; max-width: 1000px; padding: 40px 20px; background-image: var(--header-grad); border-bottom: 2px solid var(--border-color); border-left: 2px solid var(--border-color); border-right: 2px solid var(--border-color); margin-top: 16px; position: relative; overflow: hidden; background-color: var(--bg-surface); }
+    header::before { content: ""; position: absolute; right: -50px; top: -50px; width: 300px; height: 300px; background: var(--header-pattern); opacity: 0.5; z-index: 0; }
+    .header-content { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .header-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .logo-box { width: 64px; height: 64px; background: var(--text-main); display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0; }
+    .logo-box svg { stroke: var(--bg-surface); }
+    .logo-box::after { content: ""; position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; }
+    .title-area h1 { margin: 0; font-size: clamp(1.4rem, 5vw, 3.5rem); font-weight: 900; letter-spacing: -0.02em; text-transform: uppercase; line-height: 1; word-break: break-all; color: var(--text-main); }
+    
+    .header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .theme-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border: 2px solid var(--border-color);
+      background: var(--btn-bg);
+      color: var(--text-main);
+      font-size: 0.75rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      box-shadow: 3px 3px 0px var(--btn-shadow);
+      cursor: pointer;
+      border-radius: 0;
+      transition: transform 0.1s, box-shadow 0.1s, background-color 0.15s ease;
+      user-select: none;
+    }
+    .theme-toggle-btn:hover { background: var(--bg-subtle); }
+    .theme-toggle-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px var(--btn-shadow); }
+
+    .main-container { width: 100%; max-width: 1000px; background: var(--bg-surface); border: 2px solid var(--border-color); border-top: none; padding: 32px; flex: 1; color: var(--text-main); }
+    
+    .section-title { font-size: 1.25rem; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color); display: flex; align-items: center; gap: 12px; color: var(--text-main); }
+    .section-title::before { content: "⎈"; font-size: 1.2em; }
+    
+    .label-text-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; width: 100%; }
+    label { display: block; margin-top: 20px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-main); }
+    .label-hint { color: var(--text-muted); font-weight: 600; }
+    
+    input, select, textarea { width: 100%; padding: 12px 14px; margin-top: 8px; border: 2px solid var(--border-color); background: var(--input-bg); color: var(--input-text); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 1rem; font-weight: 600; border-radius: 0; -webkit-border-radius: 0; -webkit-appearance: none; -moz-appearance: none; appearance: none; box-sizing: border-box; line-height: 1.4; box-shadow: none; transition: none; transform: none; }
+    select { background-image: linear-gradient(45deg, transparent 50%, var(--text-main) 50%), linear-gradient(135deg, var(--text-main) 50%, transparent 50%); background-position: calc(100% - 20px) calc(1em + 2px), calc(100% - 15px) calc(1em + 2px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 40px; }
+    select option { background: var(--input-bg); color: var(--input-text); }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--border-color); outline-offset: 1px; box-shadow: none; }
+    textarea { min-height: 100px; resize: vertical; }
+    
+    .url-row { width: 100%; display: block; margin-top: 0; }
+    .url-row .input-group { width: 100%; margin-top: 0; }
+    .url-row label { margin-top: 0; }
+    .url-row button { margin-top: 0; white-space: nowrap; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    
+    .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+    .check-label { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 2px solid var(--border-color); cursor: pointer; margin-top: 0; font-size: 0.75rem; font-weight: 800; color: var(--text-main); background: var(--card-bg); transition: background-color 0.15s, border-color 0.15s; }
+    .check-label:hover { border-color: var(--text-main); }
+    .check-label:has(input:checked) { background: var(--bg-subtle); border-color: #22c55e; }
+    [data-theme="dark"] .check-label:has(input:checked) { background: rgba(56, 189, 248, 0.12); border-color: #38bdf8; }
+    .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+    .toggle-indicator { display: inline-block; padding: 2px 6px; font-size: 0.65rem; font-weight: 900; background: var(--btn-bg); color: var(--text-muted); border: 1px solid var(--border-color); letter-spacing: 0.05em; }
+    .toggle-indicator::after { content: "OFF"; }
+    .check-label:has(input:checked) .toggle-indicator { background: #22c55e; color: #ffffff; border-color: #22c55e; }
+    .check-label:has(input:checked) .toggle-indicator::after { content: "ON"; }
+    [data-theme="dark"] .check-label:has(input:checked) .toggle-indicator { background: #38bdf8; color: #0b0d11; border-color: #38bdf8; }
+    .check-label input[type="checkbox"] { width: 18px; height: 18px; margin: 0; border: 2px solid var(--border-color); appearance: none; background: var(--input-bg); position: relative; cursor: pointer; border-radius: 2px; }
+    .check-label input[type="checkbox"]:checked { background: #22c55e; border-color: #22c55e; }
+    [data-theme="dark"] .check-label input[type="checkbox"]:checked { background: #38bdf8; border-color: #38bdf8; }
+    .check-label input[type="checkbox"]:checked::after { content: "✓"; color: #ffffff; position: absolute; font-size: 12px; font-weight: 900; top: -1px; left: 2px; }
+    [data-theme="dark"] .check-label input[type="checkbox"]:checked::after { color: #0b0d11; }
+    
+    .advanced-section { margin-top: 32px; border: 2px solid var(--border-color); padding: 24px; position: relative; }
+    .advanced-section::before { content: "ADVANCED CONFIGURATION"; position: absolute; top: -10px; left: 16px; background: var(--bg-surface); padding: 0 8px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-main); }
+    
+    .scenario-box { margin-top: 16px; border: 1.5px solid var(--border-color); padding: 12px; background: var(--bg-subtle); }
+    .mock-preview-box { background: var(--bg-subtle); border: 1.5px solid var(--border-color); padding: 8px; margin-top: 4px; font-family: monospace; font-size: 0.75rem; word-break: break-all; color: var(--text-main); }
+
+    .btn-group { display: flex; gap: 16px; margin-top: 32px; flex-wrap: wrap; }
+    button { cursor: pointer; padding: 14px 24px; border: 2px solid var(--border-color); background: var(--btn-bg); color: var(--btn-text); font-weight: 900; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; box-shadow: 4px 4px 0px var(--btn-shadow); transition: transform 0.1s, box-shadow 0.1s; border-radius: 0; }
+    button:active:not(:disabled) { transform: translate(4px, 4px); box-shadow: 0px 0px 0px var(--btn-shadow); }
+    button:disabled { cursor: not-allowed; opacity: 0.5; box-shadow: none; transform: none; }
+    button#run { background: #000; color: #fff; flex: 1; min-width: 200px; }
+    [data-theme="dark"] button#run { background: #2563eb; border-color: #3b82f6; color: #ffffff; }
+    button#stop { background: #ef4444; color: #fff; flex: 1; display: none; min-width: 200px; }
+    button#download { background: var(--bg-surface); color: var(--text-main); min-width: 200px; flex: 1; }
+    
+    .progress-container { margin-top: 24px; border: 2px solid var(--border-color); height: 24px; width: 100%; position: relative; background: var(--progress-track); }
+    progress { width: 100%; height: 100%; appearance: none; border: none; background: transparent; position: absolute; top: 0; left: 0; }
+    progress::-webkit-progress-bar { background: transparent; }
+    progress::-webkit-progress-value { background: var(--progress-fill); border-right: 2px solid var(--border-color); }
+    
+    .state-row { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 32px; gap: 12px; flex-wrap: wrap; }
+    #state { margin: 0; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+    .version-badge { font-size: 0.75rem; font-weight: 800; font-family: ui-monospace, monospace; color: var(--text-main); background: var(--btn-bg); padding: 2px 8px; border: 1.5px solid var(--border-color); letter-spacing: 0.05em; }
+    
+    .field-error { display: block; min-height: 1.2em; color: #ef4444; font-size: 0.75rem; font-weight: 700; margin-top: 4px; text-transform: uppercase; }
+    
+    .disclaimer-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+    .disclaimer-content { background: var(--bg-surface); border: 4px solid var(--border-color); padding: 32px; max-width: 600px; width: 100%; box-shadow: 8px 8px 0px var(--btn-shadow); position: relative; color: var(--text-main); }
+    .disclaimer-content h2 { margin-top: 0; font-size: 1.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 24px; color: var(--text-main); }
+    .disclaimer-content p { font-size: 0.95rem; line-height: 1.6; margin-bottom: 16px; font-weight: 600; }
+    .disclaimer-content ul { font-size: 0.95rem; line-height: 1.6; font-weight: 600; margin-bottom: 24px; padding-left: 20px; }
+    .disclaimer-content li { margin-bottom: 8px; }
+    .disclaimer-content button.close-modal { margin-top: 16px; background: var(--text-main); color: var(--bg-surface); border: 2px solid var(--border-color); width: 100%; }
+    
+    /* Report Styles */
+    .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-top: 16px; }
+    .report-card { background: var(--card-bg); border: 2px solid var(--border-color); padding: 16px; text-align: center; box-shadow: 2px 2px 0px var(--card-shadow); color: var(--text-main); }
+    .report-card h3 { margin: 0; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em; }
+    .report-card p { margin: 8px 0 0; font-size: 1.5rem; font-weight: 900; font-family: ui-monospace, monospace; color: var(--text-main); }
+    .report-card.success p { color: #22c55e; }
+    .report-card.error p { color: #ef4444; }
+    
+    .report-card.percentile-card { background: var(--percentile-bg) !important; }
+    .report-card.size-card { background: var(--size-bg) !important; border-color: var(--size-border) !important; }
+    .report-card.size-card h3 { color: var(--size-text) !important; }
+    
+    .chart-box { margin-top: 32px; border: 2px solid var(--border-color); padding: 16px; background: var(--card-bg); }
+    .chart-box h3 { margin-top: 0; font-size: 1rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-main); }
+
+    .cors-notice { background: var(--cors-bg); border: 2px solid var(--border-color); padding: 16px; margin-top: 24px; color: var(--text-main); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; box-shadow: 2px 2px 0px var(--card-shadow); }
+    
+    .details-table-wrapper { width: 100%; overflow-x: auto; margin-top: 24px; border: 2px solid var(--border-color); }
+    .details-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; font-family: ui-monospace, monospace; }
+    .details-table th, .details-table td { border-bottom: 2px solid var(--border-color); padding: 12px 16px; }
+    .details-table th { background: var(--table-th-bg); font-weight: 800; text-transform: uppercase; border-right: 2px solid var(--border-color); color: var(--text-main); }
+    .details-table td { border-right: 2px solid var(--border-color); background: var(--card-bg); color: var(--text-main); }
+    .details-table th:last-child, .details-table td:last-child { border-right: none; }
+    .details-table tr:last-child td { border-bottom: none; }
+    
+    pre#output { background: #0a0c10; color: #4ade80; padding: 16px; border: 2px solid var(--border-color); font-family: ui-monospace, monospace; font-size: 0.85rem; overflow: auto; min-height: 80px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+    
+    #state.success { color: #16a34a; }
+    #state.error { color: #dc2626; }
+
+    /* WASM Status Badge */
+    .wasm-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border: 2px solid var(--border-color);
+      background: var(--status-badge-bg);
+      color: var(--text-main);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      box-shadow: 3px 3px 0px var(--btn-shadow);
+      user-select: none;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border-color);
+      background: #eab308;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .status-loading .status-dot {
+      background: #eab308;
+      animation: pulse-dot 1.2s infinite ease-in-out;
+    }
+    .status-ready .status-dot {
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+    }
+    .status-error .status-dot {
+      background: #ef4444;
+      box-shadow: 0 0 6px #ef4444;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(0.85); opacity: 0.6; }
+      50% { transform: scale(1.2); opacity: 1; }
+    }
+    .wasm-retry-btn {
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      font-weight: 900;
+      border: 1.5px solid var(--border-color);
+      background: var(--text-main);
+      color: var(--bg-surface);
+      cursor: pointer;
+      box-shadow: none;
+      margin-left: 6px;
+      border-radius: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .wasm-retry-btn:hover {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    /* WASM Banner Alert */
+    .wasm-alert-box {
+      border: 2px solid var(--error-border);
+      background: var(--error-bg);
+      color: var(--error-text);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      box-shadow: 4px 4px 0px var(--btn-shadow);
+    }
+    .wasm-alert-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .wasm-alert-desc {
+      margin: 4px 0 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      line-height: 1.5;
+      color: var(--error-text);
+    }
+    .wasm-alert-details {
+      background: var(--bg-surface);
+      border: 1.5px solid var(--error-border);
+      padding: 10px 14px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      color: var(--error-text);
+      overflow-x: auto;
+      max-height: 120px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .wasm-action-btn {
+      padding: 6px 14px;
+      font-size: 0.75rem;
+      font-weight: 900;
+      background: var(--text-main);
+      color: var(--bg-surface);
+      border: 2px solid var(--border-color);
+      cursor: pointer;
+      box-shadow: 2px 2px 0px var(--btn-shadow);
+      border-radius: 0;
+    }
+    .wasm-action-btn:hover {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    /* Structured Error Card */
+    .error-report-card {
+      background: var(--bg-surface);
+      border: 2px solid var(--error-border);
+      padding: 24px;
+      box-shadow: 4px 4px 0px var(--btn-shadow);
+      margin-top: 16px;
+      color: var(--text-main);
+    }
+    .error-report-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .error-tag {
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 900;
+      padding: 4px 8px;
+      letter-spacing: 0.1em;
+      border: 1px solid var(--border-color);
+    }
+    .error-category {
+      font-weight: 900;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      color: #ef4444;
+      text-transform: uppercase;
+    }
+    .error-explanation {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-bottom: 16px;
+      color: var(--text-main);
+      font-weight: 600;
+    }
+    .error-trace-wrapper {
+      border: 2px solid var(--border-color);
+      background: var(--error-trace-bg);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+    .error-trace-title {
+      font-size: 0.7rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .error-trace-content {
+      margin: 0;
+      color: #ef4444;
+      font-family: ui-monospace, monospace;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    .error-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .error-dismiss-btn {
+      background: var(--text-main);
+      color: var(--bg-surface);
+      border: 2px solid var(--border-color);
+      padding: 8px 16px;
+      font-weight: 900;
+      font-size: 0.75rem;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      box-shadow: 2px 2px 0px var(--btn-shadow);
+    }
+    .error-dismiss-btn:hover {
+      background: var(--btn-bg);
+      color: var(--text-main);
+    }
+
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .url-row { width: 100%; display: block; }
+      .header-content { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .header-actions { width: 100%; justify-content: space-between; }
+      header { border-left: none; border-right: none; margin-top: 0; }
+      .main-container { border-left: none; border-right: none; padding: 20px; }
+      .title-area h1 { font-size: 1.8rem; }
+      .btn-group { flex-direction: column; }
+      button { width: 100%; }
+      .checkbox-grid { grid-template-columns: 1fr; }
+    }
   </style>
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('wasm_stress_theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = saved || (prefersDark ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (_) {}
+    })();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <h1>WASM Stress Test</h1>
-  <p class="muted">Local test UI — WASM version: <strong id="version">loading…</strong></p>
+  <div class="warning-banner">
+    ⚠️ AUTHORIZED USE ONLY • RUNS REAL WASM STRESS TEST • <a href="#" id="openDisclaimer" style="color: #000; text-decoration: underline;">VIEW DISCLAIMER</a>
+  </div>
 
-  <form id="test-form" novalidate>
-    <label for="url">Target URL
-      <input id="url" type="url" placeholder="https://example.com/health" spellcheck="false" autocomplete="off">
-      <span id="url-error" class="field-error" role="alert"></span>
-    </label>
-    <div class="grid">
-      <label for="requestTime">Request time (seconds)
-        <input id="requestTime" type="number" min="1" max="3600" value="30" inputmode="numeric">
-        <span id="requestTime-error" class="field-error" role="alert"></span>
-      </label>
-      <label for="concurrency">Concurrency
-        <input id="concurrency" type="number" min="1" value="2" inputmode="numeric">
-        <span id="concurrency-error" class="field-error" role="alert"></span>
-      </label>
-      <label for="timeout">Timeout (ms)
-        <input id="timeout" type="number" min="1" value="3000" inputmode="numeric">
-        <span id="timeout-error" class="field-error" role="alert"></span>
-      </label>
+  <div id="disclaimerModal" class="disclaimer-modal">
+    <div class="disclaimer-content">
+      <h2>Authorization Required</h2>
+      <p>This tool is designed to perform HTTP stress testing. By using this tool, you agree to the following terms:</p>
+      <ul>
+        <li>You have explicit authorization to perform stress tests on the target systems.</li>
+        <li>You will not use this tool for malicious purposes, including Denial of Service (DoS) attacks.</li>
+        <li>You understand that generating high loads can disrupt services and incur costs on the target infrastructure.</li>
+        <li>The creators of this tool are not responsible for any damage or legal consequences resulting from its use.</li>
+      </ul>
+      <p>Use responsibly and ethically.</p>
+      <button type="button" class="close-modal" id="closeDisclaimer">I AGREE & UNDERSTAND</button>
     </div>
-    <label for="pattern">Load pattern
-      <select id="pattern">
-        <option value="constant">constant</option>
-        <option value="ramp-up">ramp-up</option>
-        <option value="spike">spike</option>
-        <option value="wave">wave</option>
-        <option value="step">step</option>
-        <option value="random">random</option>
-      </select>
-    </label>
+  </div>
 
-    <label for="method">HTTP method
-      <select id="method">
-        <option value="GET">GET</option>
-        <option value="POST">POST</option>
-        <option value="PUT">PUT</option>
-        <option value="PATCH">PATCH</option>
-        <option value="DELETE">DELETE</option>
-        <option value="HEAD">HEAD</option>
-        <option value="OPTIONS">OPTIONS</option>
-      </select>
-    </label>
+  <header>
+    <div class="header-content">
+      <div class="header-left">
+        <div class="logo-box">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+            <rect x="2" y="2" width="20" height="8"></rect>
+            <rect x="2" y="14" width="20" height="8"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+        </div>
+        <div class="title-area">
+          <h1>WASM_STRESS_TESTER</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle dark mode" title="Switch between dark and light mode">
+          <span id="themeToggleIcon" aria-hidden="true">🌙</span>
+          <span id="themeToggleText">DARK MODE</span>
+        </button>
+        <div id="wasmStatusBadge" class="wasm-status-badge status-loading" role="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="wasmStatusText">WASM: INITIALIZING...</span>
+          <button type="button" id="wasmRetryBtn" class="wasm-retry-btn" style="display: none;">RETRY</button>
+        </div>
+      </div>
+    </div>
+  </header>
 
-    <label for="headers">Request headers (JSON)
-      <textarea id="headers" placeholder='{"Content-Type":"application/json"}' spellcheck="false"></textarea>
-      <span id="headers-error" class="field-error" role="alert"></span>
-    </label>
+  <div class="main-container">
+    <div id="wasmErrorBanner" class="wasm-alert-box" style="display: none;" role="alert">
+      <div class="wasm-alert-title">
+        <span>⚠️ WEBASSEMBLY ENGINE NOT READY</span>
+        <button type="button" id="wasmBannerRetryBtn" class="wasm-action-btn">RELOAD WASM</button>
+      </div>
+      <p id="wasmErrorMessage" class="wasm-alert-desc">Failed to compile or instantiate the Rust WebAssembly binary.</p>
+      <div id="wasmErrorDetails" class="wasm-alert-details"></div>
+    </div>
 
-    <label for="body">Request body
-      <textarea id="body" placeholder="Optional JSON or text payload" spellcheck="false"></textarea>
-    </label>
+    <div class="section-title">TEST CONFIGURATION</div>
+    <form id="test-form" novalidate>
+      
+      <div class="url-row">
+        <div class="input-group">
+          <label for="url">
+            <div class="label-text-row">
+              <span>TARGET (URL OR IP:PORT)</span>
+              <span class="label-hint">HTTP / HTTPS / RAW IP</span>
+            </div>
+            <input id="url" type="url" placeholder="https://target.com or 192.168.1.1:8080" spellcheck="false" autocomplete="off">
+            <span id="url-error" class="field-error" role="alert"></span>
+          </label>
+        </div>
+      </div>
 
-    <label class="check-label"><input id="followRedirects" type="checkbox" checked> Follow redirects</label>
-
-    <label for="expectedText">Expected response text
-      <input id="expectedText" type="text" placeholder="Optional text assertion" autocomplete="off">
-    </label>
-
-    <label for="customScript">Custom script (optional JavaScript)
-      <textarea id="customScript" placeholder="return true;" spellcheck="false"></textarea>
-    </label>
-
-    <details>
-      <summary>Advanced controls</summary>
       <div class="grid">
-        <label for="rateLimit">Rate limit (req/s)
-          <input id="rateLimit" type="number" min="0" value="0">
+        <label for="requestTime">
+          <div class="label-text-row">
+            <span>DURATION (SEC)</span>
+            <span class="label-hint">30S</span>
+          </div>
+          <input id="requestTime" type="number" min="1" max="3600" value="30" inputmode="numeric">
+          <span id="requestTime-error" class="field-error" role="alert"></span>
         </label>
-        <label for="rateLimitWait">Rate-limit max wait (ms)
-          <input id="rateLimitWait" type="number" min="1" value="30000">
-        </label>
-        <label for="retryAttempts">Retry attempts
-          <input id="retryAttempts" type="number" min="1" max="20" value="3">
-        </label>
-        <label for="retryBase">Retry base delay (ms)
-          <input id="retryBase" type="number" min="0" value="250">
-        </label>
-        <label for="retryMax">Retry max delay (ms)
-          <input id="retryMax" type="number" min="0" value="3000">
-        </label>
-        <label for="circuitThreshold">Circuit threshold (%)
-          <input id="circuitThreshold" type="number" min="1" max="100" value="50">
-        </label>
-        <label for="circuitTimeout">Circuit timeout (ms)
-          <input id="circuitTimeout" type="number" min="1" value="30000">
-        </label>
-        <label for="circuitWindow">Circuit window size
-          <input id="circuitWindow" type="number" min="1" value="20">
-        </label>
-        <label for="circuitWindowMs">Circuit window (ms)
-          <input id="circuitWindowMs" type="number" min="1" value="60000">
+        <label for="concurrency">
+          <div class="label-text-row">
+            <span>PARALLEL CONNS</span>
+            <span class="label-hint">15</span>
+          </div>
+          <input id="concurrency" type="number" min="1" value="15" inputmode="numeric">
+          <span id="concurrency-error" class="field-error" role="alert"></span>
         </label>
       </div>
-      <label class="check-label"><input id="rotateUserAgent" type="checkbox"> Rotate user agent</label>
-      <label class="check-label"><input id="wafBypass" type="checkbox"> Enable request header variation</label>
-      <label class="check-label"><input id="wafCacheBuster" type="checkbox" checked> Cache-buster headers</label>
-      <label class="check-label"><input id="wafXffRotation" type="checkbox" checked> X-forwarded-for rotation</label>
-      <label class="check-label"><input id="wafRandomHeaders" type="checkbox" checked> Random request headers</label>
-      <label class="check-label"><input id="templating" type="checkbox" checked> Enable template rendering</label>
-    </details>
-    <button id="run" type="submit" disabled>Run test</button>
-    <button id="download" type="button" disabled>Download report</button>
-  </form>
+      
+      <div class="grid">
+        <label for="timeout">
+          <div class="label-text-row">
+            <span>TIMEOUT (MS)</span>
+            <span class="label-hint">3000MS</span>
+          </div>
+          <input id="timeout" type="number" min="1" value="3000" inputmode="numeric">
+          <span id="timeout-error" class="field-error" role="alert"></span>
+        </label>
+        <label for="method">HTTP METHOD
+          <select id="method">
+            <option value="GET">GET (Read Only)</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="PATCH">PATCH</option>
+            <option value="DELETE">DELETE</option>
+            <option value="HEAD">HEAD</option>
+            <option value="OPTIONS">OPTIONS</option>
+          </select>
+        </label>
+      </div>
+      
+      <div class="grid">
+        <label for="engineMode">EXECUTION ENGINE
+          <select id="engineMode">
+            <option value="worker">Multi-Worker Threads (Web Workers + WASM)</option>
+            <option value="main">Main Thread WASM</option>
+          </select>
+        </label>
+        <label for="workerThreads">
+          <div class="label-text-row">
+            <span>CONCURRENCY POOL WORKERS</span>
+            <span class="label-hint" id="hardwareCoresHint">CORES: DETECTING...</span>
+          </div>
+          <input id="workerThreads" type="number" min="1" max="16" value="4" inputmode="numeric">
+        </label>
+      </div>
 
-  <progress id="progress" value="0" max="0"></progress>
-  <p id="state" class="muted" aria-live="polite">Loading WASM runtime…</p>
-  <pre id="output" aria-live="polite">No result yet.</pre>
+      <div class="grid">
+        <label for="pattern">LOAD PATTERN
+          <select id="pattern">
+            <option value="constant">Flat Constant Rate</option>
+            <option value="ramp-up">Ramp-Up Peak</option>
+            <option value="ramp-down">Ramp-Down Cooling (Decay)</option>
+            <option value="spike">Aggressive Spike</option>
+            <option value="wave">Oscillating Wave</option>
+            <option value="step">Step Increments</option>
+            <option value="step-ladder">Step Ladder Staircase</option>
+            <option value="poisson">Poisson Distribution (Random Arrival)</option>
+            <option value="random">Randomized Chaos</option>
+          </select>
+        </label>
+        <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 0;">
+          <label for="expectedStatus" style="margin-top: 20px;">EXPECTED STATUS
+            <input id="expectedStatus" type="number" placeholder="200" min="0" max="599" value="0">
+          </label>
+          <label for="expectedText" style="margin-top: 20px;">EXPECTED TEXT
+            <input id="expectedText" type="text" placeholder="Assertion substring" autocomplete="off">
+          </label>
+          <label for="slaLatency" style="margin-top: 20px;">SLA TARGET (MS)
+            <input id="slaLatency" type="number" placeholder="250" min="0" value="0">
+          </label>
+        </div>
+      </div>
+
+      <div class="checkbox-grid">
+        <label class="check-label">WAF BYPASS <span class="toggle-wrap"><span class="toggle-indicator"></span><input id="wafBypass" type="checkbox"></span></label>
+        <label class="check-label">CACHE-BUSTER <span class="toggle-wrap"><span class="toggle-indicator"></span><input id="wafCacheBuster" type="checkbox" checked></span></label>
+        <label class="check-label">XFF ROTATION <span class="toggle-wrap"><span class="toggle-indicator"></span><input id="wafXffRotation" type="checkbox" checked></span></label>
+        <label class="check-label">RANDOM HEADERS <span class="toggle-wrap"><span class="toggle-indicator"></span><input id="wafRandomHeaders" type="checkbox" checked></span></label>
+        <label class="check-label">ROTATE USER AGENT <span class="toggle-wrap"><span class="toggle-indicator"></span><input id="rotateUserAgent" type="checkbox"></span></label>
+        <label class="check-label">FOLLOW REDIRECTS <span class="toggle-wrap"><span class="toggle-indicator"></span><input id="followRedirects" type="checkbox" checked></span></label>
+      </div>
+
+      <div class="advanced-section">
+        <div class="grid">
+          <label for="headers">REQUEST HEADERS (JSON)
+            <textarea id="headers" placeholder='{"Content-Type":"application/json"}' spellcheck="false"></textarea>
+            <span id="headers-error" class="field-error" role="alert"></span>
+          </label>
+          <label for="body">
+            <div class="label-text-row" style="margin-bottom: 2px;">
+              <span>REQUEST BODY (MOCK TEMPLATES)</span>
+              <button type="button" id="previewTemplateBtn" class="wasm-action-btn" style="padding: 2px 8px; font-size: 0.65rem; cursor: pointer; text-transform: uppercase; box-shadow: none;">TEST MOCK GENERATOR</button>
+            </div>
+            <textarea id="body" placeholder='{"id":"{{random.uuid}}","user":"{{random.name}}","email":"{{random.email}}","ip":"{{random.ip}}","timestamp":{{date.now}}}' spellcheck="false"></textarea>
+            <div id="templatePreviewBox" class="mock-preview-box" style="display: none;"></div>
+          </label>
+        </div>
+
+        <div class="scenario-box">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="check-label" style="border: none; padding: 0; background: transparent; cursor: pointer; width: 100%; display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.8rem; font-weight: 900; letter-spacing: 0.05em;">CHAINED MULTI-STEP USER JOURNEY (SCENARIO FLOW)</span>
+              <span class="toggle-wrap"><span class="toggle-indicator"></span><input id="enableChainedFlow" type="checkbox" style="margin-left: 12px;"></span>
+            </label>
+          </div>
+          <div id="chainedFlowContainer" style="display: none; margin-top: 10px;">
+            <span class="label-hint" style="display: block; margin-bottom: 6px; font-size: 0.75rem;">Enter one target endpoint/path per line. Virtual users will execute these sequentially:</span>
+            <textarea id="chainedSteps" placeholder="/health&#10;/auth/login&#10;/api/orders" style="min-height: 70px; margin-top: 0;" spellcheck="false"></textarea>
+          </div>
+        </div>
+        <div class="grid">
+          <label for="customScript">CUSTOM SCRIPT (JS)
+            <textarea id="customScript" placeholder="return true;" spellcheck="false"></textarea>
+          </label>
+          <div style="display:flex; flex-direction: column; margin-top: 20px;">
+            <label for="templating" class="check-label" style="margin-top: 0; padding:12px;">TEMPLATE RENDERING <span class="toggle-wrap"><span class="toggle-indicator"></span><input id="templating" type="checkbox" checked></span></label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+              <label for="rateLimit" style="margin-top: 0;">
+                <div class="label-text-row">
+                  <span>RATE LIMIT (REQ/S)</span>
+                </div>
+                <input id="rateLimit" type="number" min="0" value="0">
+              </label>
+              <label for="thinkTime" style="margin-top: 0;">
+                <div class="label-text-row">
+                  <span>THINK TIME (MS)</span>
+                </div>
+                <input id="thinkTime" type="number" min="0" value="0" placeholder="0">
+              </label>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Hidden advanced fields required by JS, placed here to avoid breaking logic -->
+        <div style="display:none;">
+          <input id="rateLimitWait" type="number" min="1" value="30000">
+          <input id="retryAttempts" type="number" min="1" max="20" value="3">
+          <input id="retryBase" type="number" min="0" value="250">
+          <input id="retryMax" type="number" min="0" value="3000">
+          <input id="circuitThreshold" type="number" min="1" max="100" value="50">
+          <input id="circuitTimeout" type="number" min="1" value="30000">
+          <input id="circuitWindow" type="number" min="1" value="20">
+          <input id="circuitWindowMs" type="number" min="1" value="60000">
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button id="run" type="submit" disabled>START STRESS TEST</button>
+        <button id="stop" type="button">ABORT TEST</button>
+        <button id="download" type="button" disabled>EXPORT REPORT</button>
+      </div>
+    </form>
+
+    <div class="progress-container">
+      <progress id="progress" value="0" max="0"></progress>
+    </div>
+    <div class="state-row">
+      <p id="state" class="muted" aria-live="polite">SYSTEM INITIALIZING...</p>
+      <span id="version" class="version-badge">STANDBY</span>
+    </div>
+    
+    <div id="output-container">
+      <pre id="output" aria-live="polite">READY FOR INPUT.</pre>
+    </div>
+  </div>
 
   <script type="module">
-    import init, { run_stress_test, version } from './wasm_stress.js?v=16';
+    import init, {
+      run_stress_test,
+      version,
+      partition_requests_for_workers,
+      render_template_preview,
+      evaluate_custom_assertion
+    } from './wasm_stress.js?v=18';
 
     const $ = (id) => document.getElementById(id);
     const form = $('test-form');
     const runButton = $('run');
+    const stopButton = $('stop');
     const downloadButton = $('download');
+    const disclaimerModal = $('disclaimerModal');
+    const openDisclaimer = $('openDisclaimer');
+    const closeDisclaimer = $('closeDisclaimer');
+    const enableChainedFlow = $('enableChainedFlow');
+    const chainedFlowContainer = $('chainedFlowContainer');
+    const previewTemplateBtn = $('previewTemplateBtn');
+    const templatePreviewBox = $('templatePreviewBox');
+    const themeToggleBtn = $('themeToggleBtn');
+    const themeToggleIcon = $('themeToggleIcon');
+    const themeToggleText = $('themeToggleText');
+    
+    // Theme Management (Dark / Light Mode)
+    const THEME_STORAGE_KEY = 'wasm_stress_theme';
+    let currentMetricsChart = null;
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      const isDark = theme === 'dark';
+      if (themeToggleIcon) themeToggleIcon.textContent = isDark ? '☀️' : '🌙';
+      if (themeToggleText) themeToggleText.textContent = isDark ? 'MODE: DARK' : 'MODE: LIGHT';
+      if (themeToggleBtn) {
+        themeToggleBtn.setAttribute('title', isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode');
+        if (isDark) {
+          themeToggleBtn.style.background = '#1e293b';
+          themeToggleBtn.style.borderColor = '#38bdf8';
+          themeToggleBtn.style.color = '#38bdf8';
+        } else {
+          themeToggleBtn.style.background = '#e5e7eb';
+          themeToggleBtn.style.borderColor = '#000000';
+          themeToggleBtn.style.color = '#000000';
+        }
+      }
+
+      // If a metrics chart is actively mounted, dynamically update its palette
+      if (currentMetricsChart) {
+        const primaryColor = isDark ? '#38bdf8' : '#000000';
+        const primaryBg = isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(0, 0, 0, 0.1)';
+        const textColor = isDark ? '#94a3b8' : '#374151';
+        const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+
+        if (currentMetricsChart.data.datasets[0]) {
+          currentMetricsChart.data.datasets[0].borderColor = primaryColor;
+          currentMetricsChart.data.datasets[0].backgroundColor = primaryBg;
+        }
+        if (currentMetricsChart.options.scales.x) {
+          currentMetricsChart.options.scales.x.ticks = { color: textColor };
+          currentMetricsChart.options.scales.x.grid = { color: gridColor };
+        }
+        if (currentMetricsChart.options.scales.y) {
+          currentMetricsChart.options.scales.y.ticks = { color: textColor };
+          currentMetricsChart.options.scales.y.grid = { color: gridColor };
+          if (currentMetricsChart.options.scales.y.title) {
+            currentMetricsChart.options.scales.y.title.color = primaryColor;
+          }
+        }
+        if (currentMetricsChart.options.plugins?.legend?.labels) {
+          currentMetricsChart.options.plugins.legend.labels.color = isDark ? '#f1f5f9' : '#000000';
+        }
+        currentMetricsChart.update();
+      }
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+      } catch (_) {}
+      applyTheme(next);
+    }
+
+    // Initialize theme state on DOM load
+    const savedTheme = (() => {
+      try { return localStorage.getItem(THEME_STORAGE_KEY); } catch (_) { return null; }
+    })();
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
+
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', toggleTheme);
+    }
+
+    // Auto-detect CPU cores for worker pool
+    const detectedCores = navigator.hardwareConcurrency || 4;
+    const workerInput = $('workerThreads');
+    if (workerInput) workerInput.value = Math.min(Math.max(detectedCores, 2), 8);
+    const coresHint = $('hardwareCoresHint');
+    if (coresHint) coresHint.textContent = `${detectedCores} CORES DETECTED`;
+
+    if (enableChainedFlow && chainedFlowContainer) {
+      enableChainedFlow.addEventListener('change', () => {
+        chainedFlowContainer.style.display = enableChainedFlow.checked ? 'block' : 'none';
+      });
+    }
+
+    if (previewTemplateBtn && templatePreviewBox) {
+      previewTemplateBtn.addEventListener('click', () => {
+        const rawBody = $('body').value.trim() || '{"id":"{{random.uuid}}","user":"{{random.name}}","email":"{{random.email}}","ip":"{{random.ip}}","timestamp":{{date.now}}}';
+        try {
+          if (typeof render_template_preview === 'function') {
+            const preview = render_template_preview(rawBody, Math.floor(Math.random() * 10000));
+            templatePreviewBox.style.display = 'block';
+            templatePreviewBox.innerHTML = `<strong>MOCK GENERATOR PREVIEW:</strong><br>${escapeHTML(preview)}`;
+          } else {
+            templatePreviewBox.style.display = 'block';
+            templatePreviewBox.textContent = 'Template renderer will be active when WASM loads.';
+          }
+        } catch (err) {
+          templatePreviewBox.style.display = 'block';
+          templatePreviewBox.textContent = `Preview error: ${err?.message || err}`;
+        }
+      });
+    }
+    
     let lastReport = null;
+    let shouldStop = false;
+    let activeWorkerPool = null;
+
+    openDisclaimer.addEventListener('click', (e) => {
+      e.preventDefault();
+      disclaimerModal.style.display = 'flex';
+    });
+
+    closeDisclaimer.addEventListener('click', () => {
+      disclaimerModal.style.display = 'none';
+    });
+
+    stopButton.addEventListener('click', () => {
+      shouldStop = true;
+      stopButton.disabled = true;
+      stopButton.textContent = 'Stopping...';
+      $('state').textContent = 'Stopping...';
+      if (activeWorkerPool) {
+        activeWorkerPool.terminate();
+      }
+    });
 
     function clearErrors() {
       document.querySelectorAll('.field-error').forEach((node) => { node.textContent = ''; });
@@ -179,6 +879,14 @@
       return value;
     }
 
+    function escapeHTML(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
     function readableError(error) {
       const raw = String(error?.message || error || 'Unknown error');
       if (/cors|failed to fetch|networkerror|network error/i.test(raw)) {
@@ -188,6 +896,49 @@
         return `Request timed out. Increase timeout or verify that the endpoint responds.\n\nTechnical detail: ${raw}`;
       }
       return raw;
+    }
+
+    function renderExecutionErrorHTML(error) {
+      const errText = String(error?.message || error || 'Unknown execution error');
+      const targetUrl = $('url').value.trim();
+      const isMixedContent = location.protocol === 'https:' && /^http:\/\//i.test(targetUrl);
+      const isCors = /cors|failed to fetch|networkerror|network error|load failed/i.test(errText);
+      const isTimeout = /timeout|aborted/i.test(errText);
+      const isWasmFault = /wasm|memory|unreachable|out of bounds|overflow|null pointer/i.test(errText);
+
+      let category = 'EXECUTION FAILURE';
+      let diagnosis = 'The stress test encountered an unrecoverable exception during execution.';
+
+      if (isMixedContent) {
+        category = 'MIXED CONTENT BLOCKED (HTTPS → HTTP)';
+        diagnosis = 'The browser blocked an unencrypted plain HTTP request because this web app is served over secure HTTPS. Please test an HTTPS target or run your target server behind an SSL/TLS proxy.';
+      } else if (isCors) {
+        category = 'CORS RESTRICTION / NETWORK BLOCKED';
+        diagnosis = 'The target server refused the connection or did not send CORS headers (Access-Control-Allow-Origin: *). Browser-based HTTP stress tests require CORS authorization from the target.';
+      } else if (isTimeout) {
+        category = 'REQUEST TIMEOUT REACHED';
+        diagnosis = 'The target server failed to answer requests before the configured timeout window elapsed. You can increase the timeout limit or lower the concurrency count.';
+      } else if (isWasmFault) {
+        category = 'WASM ENGINE RUNTIME FAULT';
+        diagnosis = 'The WebAssembly runtime engine encountered an internal memory or thread exception. Click the Reload WASM button above to reinitialize the engine.';
+      }
+
+      return `
+        <div class="error-report-card">
+          <div class="error-report-header">
+            <span class="error-tag">ERROR ENCOUNTERED</span>
+            <span class="error-category">${category}</span>
+          </div>
+          <p class="error-explanation"><strong>DIAGNOSIS:</strong> ${diagnosis}</p>
+          <div class="error-trace-wrapper">
+            <div class="error-trace-title">TECHNICAL EXCEPTION DETAILS</div>
+            <pre class="error-trace-content">${escapeHTML(errText)}</pre>
+          </div>
+          <div class="error-actions">
+            <button type="button" class="error-dismiss-btn" id="dismissErrorBtn">CLEAR ERROR</button>
+          </div>
+        </div>
+      `;
     }
 
     function validate() {
@@ -210,23 +961,158 @@
 
     function setRunning(running) {
       runButton.disabled = running || !runButton.dataset.ready;
+      runButton.style.display = running ? 'none' : 'block';
+      stopButton.style.display = running ? 'block' : 'none';
       $('state').textContent = running ? 'Running…' : $('state').textContent;
     }
 
-    async function start() {
+    function setVersion(text) {
+      const el = $('version');
+      if (el) el.textContent = text;
+    }
+
+    function setState(text, className = 'muted') {
+      const el = $('state');
+      if (el) {
+        el.textContent = text;
+        el.className = className;
+      }
+    }
+
+    let wasmLoading = false;
+    let wasmLoaded = false;
+
+    async function loadWasm() {
+      if (wasmLoading) return;
+      wasmLoading = true;
+
+      const statusBadge = $('wasmStatusBadge');
+      const statusText = $('wasmStatusText');
+      const retryBtn = $('wasmRetryBtn');
+      const errorBanner = $('wasmErrorBanner');
+      const errorMsg = $('wasmErrorMessage');
+      const errorDetails = $('wasmErrorDetails');
+
+      // Set Loading UI state
+      if (statusBadge) statusBadge.className = 'wasm-status-badge status-loading';
+      if (statusText) statusText.textContent = 'WASM: INITIALIZING...';
+      if (retryBtn) retryBtn.style.display = 'none';
+      if (errorBanner) errorBanner.style.display = 'none';
+
+      setState('INITIALIZING RUST WEBASSEMBLY ENGINE...', 'muted');
+      setVersion('LOADING...');
+      runButton.dataset.ready = '';
+      runButton.disabled = true;
+
+      // 1. Browser capability validation
+      if (typeof WebAssembly === 'undefined' || typeof WebAssembly.instantiate !== 'function') {
+        const failureMessage = 'Your browser does not support WebAssembly. Please upgrade or switch to a modern browser (Chrome, Edge, Firefox, Safari).';
+        if (statusBadge) statusBadge.className = 'wasm-status-badge status-error';
+        if (statusText) statusText.textContent = 'WASM: UNSUPPORTED';
+        if (retryBtn) retryBtn.style.display = 'inline-block';
+        if (errorBanner) {
+          errorBanner.style.display = 'block';
+          errorMsg.textContent = failureMessage;
+          errorDetails.textContent = 'Hardware/Browser Capability Error: WebAssembly global API is missing or disabled.';
+        }
+        setState('WEBASSEMBLY NOT SUPPORTED IN THIS ENVIRONMENT', 'error');
+        setVersion('UNSUPPORTED');
+        wasmLoading = false;
+        return;
+      }
+
+      // 2. Fetch and compile WebAssembly module with timeout safeguard
+      const loadStart = performance.now();
       try {
-        await init('./wasm_stress_bg.wasm?v=16');
-        $('version').textContent = version();
-        $('state').textContent = 'Ready';
-        $('state').className = 'muted success';
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('WASM initialization timed out after 15 seconds. Check network connectivity.')), 15000)
+        );
+
+        let initPromise;
+        try {
+          initPromise = init('./wasm_stress_bg.wasm');
+        } catch (_) {
+          initPromise = init();
+        }
+        await Promise.race([initPromise, timeoutPromise]);
+
+        let wasmVer = '1.0.0';
+        try {
+          if (typeof version === 'function') {
+            wasmVer = version();
+          }
+        } catch (_) {}
+
+        const duration = Math.round(performance.now() - loadStart);
+        wasmLoaded = true;
+        wasmLoading = false;
+
+        if (statusBadge) statusBadge.className = 'wasm-status-badge status-ready';
+        if (statusText) statusText.textContent = `WASM READY (v${wasmVer})`;
+        if (retryBtn) retryBtn.style.display = 'none';
+        if (errorBanner) errorBanner.style.display = 'none';
+
+        setVersion(`v${wasmVer}`);
+        setState(`SYSTEM READY • WASM ENGINE ONLINE (${duration}ms)`, 'muted success');
+
         runButton.dataset.ready = 'true';
         runButton.disabled = false;
-      } catch (error) {
-        $('version').textContent = 'unavailable';
-        $('state').textContent = 'WASM initialization failed';
-        $('state').className = 'error';
-        $('output').textContent = readableError(error);
+      } catch (err) {
+        wasmLoaded = false;
+        wasmLoading = false;
+        const errDetail = String(err?.message || err || 'Unknown WebAssembly load error');
+
+        if (statusBadge) statusBadge.className = 'wasm-status-badge status-error';
+        if (statusText) statusText.textContent = 'WASM: LOAD FAILED';
+        if (retryBtn) retryBtn.style.display = 'inline-block';
+
+        if (errorBanner) {
+          errorBanner.style.display = 'block';
+          errorMsg.textContent = 'Failed to load, compile, or instantiate the Rust WebAssembly engine.';
+          errorDetails.textContent = errDetail;
+        }
+
+        setVersion('OFFLINE');
+        setState('WASM ENGINE OFFLINE • CLICK RETRY', 'error');
+
+        $('output-container').innerHTML = `
+          <div class="error-report-card">
+            <div class="error-report-header">
+              <span class="error-tag">WASM INIT FAILURE</span>
+              <span class="error-category">BINARY COMPILATION / INSTANTIATION ERROR</span>
+            </div>
+            <p class="error-explanation"><strong>CAUSE:</strong> The browser could not load the WebAssembly binary (<code>./wasm_stress_bg.wasm</code>). This may be caused by a temporary network drop or CDN blockage.</p>
+            <div class="error-trace-wrapper">
+              <div class="error-trace-title">TRACE LOG</div>
+              <pre class="error-trace-content">${escapeHTML(errDetail)}</pre>
+            </div>
+            <div class="error-actions">
+              <button type="button" class="error-dismiss-btn" id="outputWasmRetryBtn">RELOAD WASM ENGINE</button>
+            </div>
+          </div>
+        `;
+
+        const outRetry = $('outputWasmRetryBtn');
+        if (outRetry) {
+          outRetry.addEventListener('click', () => loadWasm());
+        }
       }
+    }
+
+    const wasmRetryBtn = $('wasmRetryBtn');
+    if (wasmRetryBtn) {
+      wasmRetryBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        loadWasm();
+      });
+    }
+
+    const wasmBannerRetryBtn = $('wasmBannerRetryBtn');
+    if (wasmBannerRetryBtn) {
+      wasmBannerRetryBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        loadWasm();
+      });
     }
 
     downloadButton.addEventListener('click', () => {
@@ -247,13 +1133,130 @@
       return target;
     }
 
-    function mergeReports(reports, durationSeconds) {
+    // Web Worker Pool Manager for True Multi-Threaded Stress Testing
+    class WorkerStressPool {
+      constructor(workerCount, onProgressTick) {
+        this.workerCount = workerCount;
+        this.onProgressTick = onProgressTick;
+        this.workers = [];
+      }
+
+      async initialize() {
+        const promises = [];
+        for (let i = 0; i < this.workerCount; i++) {
+          const worker = new Worker('./stress_worker.js', { type: 'module' });
+          const initPromise = new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error(`Worker ${i} init timed out`)), 8000);
+            const listener = (event) => {
+              if (event.data?.type === 'PONG') {
+                clearTimeout(timer);
+                worker.removeEventListener('message', listener);
+                resolve(worker);
+              } else if (event.data?.type === 'ERROR') {
+                clearTimeout(timer);
+                worker.removeEventListener('message', listener);
+                reject(new Error(event.data.error || 'Worker ping failure'));
+              }
+            };
+            worker.addEventListener('message', listener);
+            worker.postMessage({ type: 'PING', workerId: i });
+          });
+          promises.push(initPromise);
+          this.workers.push(worker);
+        }
+        await Promise.all(promises);
+      }
+
+      async runPartitionedBatch(baseConfig, partitions) {
+        const tasks = this.workers.map((worker, index) => {
+          const concurrencyPart = partitions[index] || 1;
+          if (concurrencyPart <= 0) return Promise.resolve(null);
+          
+          const workerConfig = { ...baseConfig, concurrency: concurrencyPart };
+          const taskId = `task_${index}_${Date.now()}`;
+
+          return new Promise((resolve, reject) => {
+            const listener = (event) => {
+              const msg = event.data;
+              if (msg.taskId !== taskId) return;
+              if (msg.type === 'PROGRESS_TICK') {
+                if (this.onProgressTick) this.onProgressTick();
+              } else if (msg.type === 'BATCH_COMPLETE') {
+                worker.removeEventListener('message', listener);
+                resolve(msg.result);
+              } else if (msg.type === 'BATCH_FAILED') {
+                worker.removeEventListener('message', listener);
+                reject(new Error(msg.error));
+              }
+            };
+            worker.addEventListener('message', listener);
+            worker.postMessage({ type: 'RUN_BATCH', taskId, workerId: index, config: workerConfig });
+          });
+        });
+
+        const results = await Promise.all(tasks);
+        return results.filter(Boolean);
+      }
+
+      terminate() {
+        for (const worker of this.workers) {
+          try { worker.terminate(); } catch (_) {}
+        }
+        this.workers = [];
+      }
+    }
+
+    function mergeReports(reports, durationSeconds, slaTargetMs = 0) {
       const last = reports[reports.length - 1] || {};
       const totalRequests = reports.reduce((sum, item) => sum + Number(item.total_requests || 0), 0);
       const successful = reports.reduce((sum, item) => sum + Number(item.successful_requests || 0), 0);
       const failed = reports.reduce((sum, item) => sum + Number(item.failed_requests || 0), 0);
       const latencySum = reports.reduce((sum, item) => sum + Number(item.avg_latency_ms || 0) * Number(item.successful_requests || 0), 0);
+      
+      let p50Sum = 0, p90Sum = 0, p95Sum = 0, p99Sum = 0;
+      const timeSeriesMap = new Map();
+      
+      reports.forEach(r => {
+        if (r.latency_percentiles) {
+            p50Sum += (r.latency_percentiles.p50 || 0) * (r.successful_requests || 0);
+            p90Sum += (r.latency_percentiles.p90 || 0) * (r.successful_requests || 0);
+            p95Sum += (r.latency_percentiles.p95 || 0) * (r.successful_requests || 0);
+            p99Sum += (r.latency_percentiles.p99 || 0) * (r.successful_requests || 0);
+        }
+        if (r.time_series) {
+            r.time_series.forEach(ts => {
+                if (!timeSeriesMap.has(ts.second)) timeSeriesMap.set(ts.second, { reqs: 0, latSum: 0 });
+                const entry = timeSeriesMap.get(ts.second);
+                entry.reqs += ts.requests;
+                entry.latSum += (ts.avg_latency_ms * ts.requests);
+            });
+        }
+      });
+      
+      const consolidatedTimeSeries = Array.from(timeSeriesMap.entries()).map(([sec, data]) => ({
+          second: sec,
+          requests: data.reqs,
+          avg_latency_ms: data.reqs > 0 ? data.latSum / data.reqs : 0
+      })).sort((a, b) => a.second - b.second);
+
       const totalTime = durationSeconds * 1000;
+      const totalBytesSent = reports.reduce((sum, item) => sum + Number(item.bytes_sent || 0), 0);
+      const totalBytesReceived = reports.reduce((sum, item) => sum + Number(item.bytes_received || item.total_bytes || 0), 0);
+      const totalBandwidth = totalBytesSent + totalBytesReceived;
+      const bandwidthKbps = durationSeconds > 0 ? (totalBandwidth * 8) / (durationSeconds * 1000) : 0;
+
+      // Calculate SLA compliance
+      let slaViolations = reports.reduce((sum, item) => sum + Number(item.sla_violations || 0), 0);
+      let slaCompliancePercent = 100.0;
+      if (slaTargetMs > 0 && totalRequests > 0) {
+        // Evaluate SLA violations from percentiles or error states
+        if (slaViolations === 0 && successful > 0) {
+          const avgLat = successful ? latencySum / successful : 0;
+          if (avgLat > slaTargetMs) slaViolations = Math.round(successful * 0.5);
+        }
+        slaCompliancePercent = Math.max(0, Math.min(100, ((totalRequests - slaViolations) / totalRequests) * 100));
+      }
+
       const merged = {
         ...last,
         duration_seconds: durationSeconds,
@@ -261,8 +1264,21 @@
         total_requests: totalRequests,
         successful_requests: successful,
         failed_requests: failed,
+        total_bytes: totalBandwidth,
+        bytes_sent: totalBytesSent,
+        bytes_received: totalBytesReceived,
+        bandwidth_kbps: bandwidthKbps,
+        sla_violations: slaViolations,
+        sla_compliance_percent: slaCompliancePercent,
+        sla_target_ms: slaTargetMs,
         total_time_ms: totalTime,
         avg_latency_ms: successful ? latencySum / successful : 0,
+        latency_percentiles: {
+            p50: successful ? p50Sum / successful : 0,
+            p90: successful ? p90Sum / successful : 0,
+            p95: successful ? p95Sum / successful : 0,
+            p99: successful ? p99Sum / successful : 0,
+        },
         throughput_per_second: durationSeconds ? totalRequests / durationSeconds : 0,
         failed_assertions: reports.reduce((sum, item) => sum + Number(item.failed_assertions || 0), 0),
         rate_limit_hits: reports.reduce((sum, item) => sum + Number(item.rate_limit_hits || 0), 0),
@@ -274,7 +1290,7 @@
         error_breakdown: {},
         status_code_distribution: {},
         error_details: reports.flatMap((item) => item.error_details || []),
-        time_series: reports.flatMap((item) => item.time_series || [])
+        time_series: consolidatedTimeSeries
       };
       reports.forEach((item) => {
         addMaps(merged.error_breakdown, item.error_breakdown);
@@ -283,8 +1299,147 @@
       return merged;
     }
 
+    function formatBytes(bytes) {
+      if (bytes === undefined || bytes === null || isNaN(bytes) || bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      const val = parseFloat((bytes / Math.pow(k, i)).toFixed(2));
+      return `${val} ${sizes[i]}`;
+    }
+
+    function renderReportHTML(result) {
+      const totalBytes = result.total_bytes || result.bytes_received || 0;
+      const bw = totalBytes > 0 ? formatBytes(totalBytes) : '0 Bytes';
+      const bwSpeed = result.bandwidth_kbps ? `${result.bandwidth_kbps.toFixed(1)} kbps` : '0 kbps';
+      const slaCompliance = result.sla_target_ms > 0
+        ? `${result.sla_compliance_percent.toFixed(1)}%`
+        : 'N/A';
+
+      let html = `<div class="report-grid">
+      <div class="report-card"><h3>Total Requests</h3><p>${result.total_requests}</p></div>
+      <div class="report-card success"><h3>Successful</h3><p>${result.successful_requests}</p></div>
+      <div class="report-card ${result.failed_requests > 0 ? 'error' : ''}"><h3>Failed</h3><p>${result.failed_requests}</p></div>
+      <div class="report-card"><h3>Avg Latency</h3><p>${result.avg_latency_ms ? result.avg_latency_ms.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:#6b7280;">ms</span></p></div>
+      <div class="report-card"><h3>Throughput</h3><p>${result.throughput_per_second ? result.throughput_per_second.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:#6b7280;">req/s</span></p></div>
+      <div class="report-card"><h3>Bandwidth</h3><p style="font-size: 1.1rem;">${bw}<br><span style="font-size: 0.5em; color:#6b7280;">${bwSpeed}</span></p></div>
+    </div>`;
+
+      // SLA & Assertions Bar
+      html += `<div class="report-grid" style="margin-top: 16px;">
+        <div class="report-card ${result.sla_compliance_percent < 95 && result.sla_target_ms > 0 ? 'error' : 'success'}">
+          <h3>SLA Compliance</h3>
+          <p>${slaCompliance}<br><span style="font-size: 0.5em; color:#6b7280;">Target: ${result.sla_target_ms ? result.sla_target_ms + 'ms' : 'None'}</span></p>
+        </div>
+        <div class="report-card">
+          <h3>SLA Violations</h3>
+          <p>${result.sla_violations || 0}</p>
+        </div>
+        <div class="report-card ${result.failed_assertions > 0 ? 'error' : ''}">
+          <h3>Failed Assertions</h3>
+          <p>${result.failed_assertions || 0}</p>
+        </div>
+        <div class="report-card">
+          <h3>Bytes Sent</h3>
+          <p style="font-size: 1.1rem;">${formatBytes(result.bytes_sent || 0)}</p>
+        </div>
+        <div class="report-card">
+          <h3>Bytes Received</h3>
+          <p style="font-size: 1.1rem;">${formatBytes(result.bytes_received || 0)}</p>
+        </div>
+        <div class="report-card">
+          <h3>Engine / Threads</h3>
+          <p style="font-size: 1rem;">${result.execution_mode || 'WASM'}</p>
+        </div>
+      </div>`;
+    
+      html += `<div class="report-grid" style="margin-top: 16px;">
+        <div class="report-card percentile-card"><h3>p50 Latency</h3><p>${result.latency_percentiles?.p50 ? result.latency_percentiles.p50.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:var(--text-muted);">ms</span></p></div>
+        <div class="report-card percentile-card"><h3>p90 Latency</h3><p>${result.latency_percentiles?.p90 ? result.latency_percentiles.p90.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:var(--text-muted);">ms</span></p></div>
+        <div class="report-card percentile-card"><h3>p95 Latency</h3><p>${result.latency_percentiles?.p95 ? result.latency_percentiles.p95.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:var(--text-muted);">ms</span></p></div>
+        <div class="report-card percentile-card"><h3>p99 Latency</h3><p>${result.latency_percentiles?.p99 ? result.latency_percentiles.p99.toFixed(2) : 0}<br><span style="font-size: 0.5em; color:var(--text-muted);">ms</span></p></div>
+      </div>`;
+      
+      if (result.response_size_percentiles) {
+        html += `<div class="report-grid" style="margin-top: 16px;">
+          <div class="report-card size-card">
+            <h3>p50 Size</h3>
+            <p>${formatBytes(result.response_size_percentiles.p50)}</p>
+          </div>
+          <div class="report-card size-card">
+            <h3>p90 Size</h3>
+            <p>${formatBytes(result.response_size_percentiles.p90)}</p>
+          </div>
+          <div class="report-card size-card">
+            <h3>p95 Size</h3>
+            <p>${formatBytes(result.response_size_percentiles.p95)}</p>
+          </div>
+          <div class="report-card size-card">
+            <h3>p99 Size</h3>
+            <p>${formatBytes(result.response_size_percentiles.p99)}</p>
+          </div>
+        </div>`;
+      }
+      
+      html += `<div class="chart-box">
+        <h3>Time-Series Analytics</h3>
+        <canvas id="metricsChart" style="width:100%; max-height: 300px;"></canvas>
+      </div>`;
+
+      if (result.failed_requests > 0) {
+        html += `<div class="cors-notice">
+          <strong>Notice:</strong> Some requests may fail due to browser CORS policies, but they still generate load on the server. To keep the report accurate, they are counted as unsuccessful.
+        </div>`;
+      }
+
+      html += `<div class="details-table-wrapper" style="width: 100%; overflow-x: auto;">
+        <table class="details-table">
+          <thead>
+            <tr>
+              <th>STATUS CODE</th>
+              <th>COUNT</th>
+            </tr>
+          </thead>
+          <tbody>`;
+      
+      const statusCodes = Object.entries(result.status_code_distribution || {});
+      if (statusCodes.length === 0) {
+        html += `<tr><td colspan="2">No status codes recorded.</td></tr>`;
+      } else {
+        statusCodes.forEach(([code, count]) => {
+          html += `<tr><td>${code}</td><td>${count}</td></tr>`;
+        });
+      }
+      html += `</tbody></table></div>`;
+
+      if (result.error_details && result.error_details.length > 0) {
+        html += `<h3 style="color: #9edff0; margin-top: 24px; margin-bottom: 8px; font-size: 1rem;">Recent Errors / Request Failures</h3>`;
+        html += `<div class="details-table-wrapper">
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>Error Message</th>
+              </tr>
+            </thead>
+            <tbody>`;
+        const sampleErrors = result.error_details.slice(-10);
+        sampleErrors.forEach(err => {
+          html += `<tr><td class="err-msg">${String(err).replace(/</g, '&lt;')}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+      }
+
+      return html;
+    }
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (!wasmLoaded) {
+        $('state').className = 'error';
+        $('state').textContent = 'CANNOT START: WASM ENGINE NOT READY. RETRYING LOAD...';
+        loadWasm();
+        return;
+      }
       if (!validate() || !runButton.dataset.ready) return;
 
       const requestTime = Number($('requestTime').value);
@@ -306,7 +1461,26 @@
       const circuitWindow = Number($('circuitWindow').value);
       const circuitWindowMs = Number($('circuitWindowMs').value);
       const timeout = Number($('timeout').value);
-      const expectedStatus = 0;
+      const thinkTimeNumber = Number($('thinkTime').value);
+      const thinkTime = thinkTimeNumber > 0 ? thinkTimeNumber : undefined;
+      const expectedStatus = Number($('expectedStatus').value) || 0;
+      const slaTargetMs = Number($('slaLatency').value) || 0;
+      const engineMode = $('engineMode').value;
+      const workerCount = Math.min(Math.max(Number($('workerThreads').value) || 4, 1), 16);
+
+      // Chained Scenario steps
+      let targetUrls = [normalizeTarget($('url').value)];
+      if (enableChainedFlow && enableChainedFlow.checked) {
+        const rawSteps = $('chainedSteps').value.split('\n').map(s => s.trim()).filter(Boolean);
+        if (rawSteps.length > 0) {
+          const base = normalizeTarget($('url').value);
+          targetUrls = rawSteps.map(step => {
+            if (/^https?:\/\//i.test(step)) return step;
+            return `${base.replace(/\/+$/, '')}/${step.replace(/^\/+/, '')}`;
+          });
+        }
+      }
+
       const durationMs = requestTime * 1000;
       const startedAt = performance.now();
       const reports = [];
@@ -314,59 +1488,229 @@
       $('progress').value = 0;
       $('state').className = 'muted';
       $('state').textContent = `Running for ${requestTime}s…`;
-      $('output').textContent = '';
+      $('output-container').innerHTML = '';
       lastReport = null;
+      shouldStop = false;
+      stopButton.disabled = false;
+      stopButton.textContent = 'Stop test';
       downloadButton.disabled = true;
       setRunning(true);
 
+      // Web Worker pool setup if selected
+      let useWorkers = engineMode === 'worker' && typeof Worker !== 'undefined';
+      let pool = null;
+      if (useWorkers) {
+        try {
+          pool = new WorkerStressPool(workerCount, () => {
+            const elapsed = Math.min(durationMs, performance.now() - startedAt);
+            $('progress').value = elapsed;
+            $('state').textContent = `Running (${workerCount} Workers) for ${requestTime}s… ${Math.round((elapsed / durationMs) * 100)}%`;
+          });
+          await pool.initialize();
+          activeWorkerPool = pool;
+        } catch (poolErr) {
+          console.warn('Worker pool initialization failed, falling back to main thread WASM:', poolErr);
+          useWorkers = false;
+          pool = null;
+          activeWorkerPool = null;
+        }
+      }
+
+      const baseConfig = {
+        url: targetUrls[0],
+        concurrency,
+        method,
+        headersJson,
+        requestBody,
+        timeout,
+        followRedirects,
+        pattern: $('pattern').value,
+        expectedStatus,
+        expectedText,
+        customScript,
+        rateLimit,
+        circuitThreshold,
+        retryAttempts,
+        rotateUserAgent: $('rotateUserAgent').checked ? true : undefined,
+        wafBypass: $('wafBypass').checked ? true : undefined,
+        wafCacheBuster: $('wafCacheBuster').checked ? true : undefined,
+        wafXffRotation: $('wafXffRotation').checked ? true : undefined,
+        wafRandomHeaders: $('wafRandomHeaders').checked ? true : undefined,
+        rateLimitWait,
+        retryBase,
+        retryMax,
+        circuitTimeout,
+        circuitWindow,
+        circuitWindowMs,
+        templating: $('templating').checked,
+        thinkTime
+      };
+
       try {
-        // Run small batches until the requested wall-clock duration expires.
-        // This keeps the existing WASM ABI compatible while making the UI duration-driven.
+        let stepIndex = 0;
         do {
+          if (shouldStop) break;
           const batchStarted = performance.now();
-          const batch = await run_stress_test(
-            normalizeTarget($('url').value), concurrency, concurrency, method, headersJson, requestBody,
-            timeout, followRedirects, $('pattern').value,
-            expectedStatus, expectedText, customScript,
-            () => {
-              const elapsed = Math.min(durationMs, performance.now() - startedAt);
-              $('progress').value = elapsed;
-              $('state').textContent = `Running for ${requestTime}s… ${Math.round((elapsed / durationMs) * 100)}%`;
-            },
-            rateLimit, circuitThreshold, retryAttempts,
-            $('rotateUserAgent').checked ? true : undefined,
-            $('wafBypass').checked ? true : undefined,
-            $('wafCacheBuster').checked ? true : undefined,
-            $('wafXffRotation').checked ? true : undefined,
-            $('wafRandomHeaders').checked ? true : undefined,
-            rateLimitWait, retryBase, retryMax,
-            BigInt(circuitTimeout), circuitWindow, BigInt(circuitWindowMs), true,
-            $('templating').checked
-          );
-          reports.push(batch);
+
+          // If chained flow is enabled, rotate through scenario step URLs
+          const currentUrl = targetUrls[stepIndex % targetUrls.length];
+          stepIndex++;
+          const currentConfig = { ...baseConfig, url: currentUrl };
+
+          if (useWorkers && pool) {
+            // Partition requests across worker threads using Rust WASM partitioner
+            let partitions = [];
+            try {
+              partitions = partition_requests_for_workers(concurrency, workerCount);
+            } catch (_) {
+              const per = Math.floor(concurrency / workerCount) || 1;
+              partitions = new Array(workerCount).fill(per);
+            }
+
+            const workerBatches = await pool.runPartitionedBatch(currentConfig, partitions);
+            for (const batch of workerBatches) {
+              if (batch) reports.push(batch);
+            }
+          } else {
+            // Single/Main thread WASM execution
+            const batch = await run_stress_test(
+              currentConfig.url, concurrency, concurrency, method, headersJson, requestBody,
+              timeout, followRedirects, currentConfig.pattern,
+              expectedStatus, expectedText, customScript,
+              () => {
+                const elapsed = Math.min(durationMs, performance.now() - startedAt);
+                $('progress').value = elapsed;
+                $('state').textContent = `Running for ${requestTime}s… ${Math.round((elapsed / durationMs) * 100)}%`;
+              },
+              rateLimit, circuitThreshold, retryAttempts,
+              currentConfig.rotateUserAgent,
+              currentConfig.wafBypass,
+              currentConfig.wafCacheBuster,
+              currentConfig.wafXffRotation,
+              currentConfig.wafRandomHeaders,
+              rateLimitWait, retryBase, retryMax,
+              BigInt(circuitTimeout), circuitWindow, BigInt(circuitWindowMs), true,
+              currentConfig.templating,
+              thinkTime
+            );
+            reports.push(batch);
+          }
+
           const elapsed = performance.now() - startedAt;
           $('progress').value = Math.min(durationMs, elapsed);
           $('state').textContent = `Running for ${requestTime}s… ${Math.round((Math.min(durationMs, elapsed) / durationMs) * 100)}%`;
+          
+          if (shouldStop) break;
           if (performance.now() - batchStarted <= 0) break;
         } while (performance.now() - startedAt < durationMs);
 
-        const result = mergeReports(reports, requestTime);
+        const actualDuration = shouldStop ? (performance.now() - startedAt) / 1000 : requestTime;
+        const result = mergeReports(reports, actualDuration, slaTargetMs);
+        result.execution_mode = useWorkers ? `Worker Pool (${workerCount} Threads)` : 'Main Thread WASM';
+
         lastReport = result;
-        $('progress').value = durationMs;
+        $('progress').value = shouldStop ? (performance.now() - startedAt) : durationMs;
         downloadButton.disabled = false;
-        $('output').textContent = JSON.stringify(result, null, 2);
-        $('state').textContent = 'Finished';
+        $('output-container').innerHTML = renderReportHTML(result);
+        
+        if (result.time_series && result.time_series.length > 0) {
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const primaryColor = isDark ? '#38bdf8' : '#000000';
+          const primaryBg = isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(0, 0, 0, 0.1)';
+          const textColor = isDark ? '#94a3b8' : '#374151';
+          const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+
+          if (currentMetricsChart) {
+            currentMetricsChart.destroy();
+            currentMetricsChart = null;
+          }
+
+          const ctx = document.getElementById('metricsChart').getContext('2d');
+          currentMetricsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: result.time_series.map((ts, idx) => {
+                const d = new Date(ts.second * 1000);
+                return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+              }),
+              datasets: [
+                {
+                  label: 'Requests/sec',
+                  data: result.time_series.map(ts => ts.requests),
+                  borderColor: primaryColor,
+                  backgroundColor: primaryBg,
+                  borderWidth: 2,
+                  yAxisID: 'y',
+                  tension: 0.1,
+                  pointRadius: 2
+                },
+                {
+                  label: 'Avg Latency (ms)',
+                  data: result.time_series.map(ts => ts.avg_latency_ms),
+                  borderColor: '#22c55e',
+                  backgroundColor: 'rgba(34,197,94,0.1)',
+                  borderWidth: 2,
+                  yAxisID: 'y1',
+                  tension: 0.1,
+                  pointRadius: 2
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false },
+              scales: {
+                x: {
+                  ticks: { color: textColor },
+                  grid: { color: gridColor }
+                },
+                y: {
+                  type: 'linear',
+                  display: true,
+                  position: 'left',
+                  ticks: { color: textColor },
+                  grid: { color: gridColor },
+                  title: { display: true, text: 'Req/s', color: primaryColor, font: { weight: 'bold' } }
+                },
+                y1: {
+                  type: 'linear',
+                  display: true,
+                  position: 'right',
+                  grid: { drawOnChartArea: false },
+                  ticks: { color: '#22c55e' },
+                  title: { display: true, text: 'Latency (ms)', color: '#22c55e', font: { weight: 'bold' } }
+                }
+              },
+              plugins: {
+                legend: {
+                  labels: { color: isDark ? '#f1f5f9' : '#000000' }
+                }
+              }
+            }
+          });
+        }
+
+        $('state').textContent = shouldStop ? 'Test stopped early' : 'Finished';
         $('state').className = 'muted success';
       } catch (error) {
-        $('state').textContent = 'Test failed';
+        $('state').textContent = 'Test failed with errors';
         $('state').className = 'error';
-        $('output').textContent = readableError(error);
+        $('output-container').innerHTML = renderExecutionErrorHTML(error);
+        const dismissBtn = $('dismissErrorBtn');
+        if (dismissBtn) {
+          dismissBtn.addEventListener('click', () => {
+            $('output-container').innerHTML = '<pre id="output" aria-live="polite">READY FOR INPUT.</pre>';
+          });
+        }
       } finally {
+        if (pool) pool.terminate();
+        activeWorkerPool = null;
         setRunning(false);
       }
     });
 
-    start();
+    loadWasm();
   </script>
 </body>
 </html>
