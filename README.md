@@ -1,7 +1,7 @@
 # 🚀 WASM Stress Test Pro
 
 <p align="center">
-  <img src="IMG_9772.png" alt="WASM Stress Test Logo" width="600">
+  <img src="IMG_9771.jpeg" alt="WASM Stress Test Logo" width="600">
 </p>
 
 <p align="center">
